@@ -60,7 +60,8 @@ def G_unscaled(t,y):
 
 x = (2.*np.pi/N)*np.arange(-N/2,N/2).reshape(N,1) # Space discretization
 s, shift = 25.**2., 2. # Initial data is a soliton
-y0 = (3.*s*np.cosh(.5*(sqrt(s)*(x+shift)))**(-2.)).reshape(N,)
+s2, shift2 = 16.**2., 1. # Second soliton
+y0 = (3.*s*np.cosh(.5*(sqrt(s)*(x+shift)))**(-2.)).reshape(N,) + (3.*s2*np.cosh(.5*(sqrt(s2)*(x+shift2)))**(-2.)).reshape(N,)
 # Solves the ODE.
 constant = 0.07     #calculation
 max_t = 0.0075
