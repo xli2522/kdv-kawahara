@@ -25,8 +25,8 @@ def main():
     t = np.linspace(0, T, 501)
 
     sol = solve_kdv(kdv_model, u0, t, L, 5000)
-    plot(sol, L, T)
-    #animate(sol, L, T, 50)
+    #plot(sol, L, T)
+    animate(sol, L, T, 50)
     return
 
 # The KdV model using Fast Fourier Transform
@@ -124,7 +124,7 @@ def animate(sol, rangeX, rangeT, frames):
     print('begin video construction')
     revImg = reversed(images)
     imv.memory.construct(revImg, 'matplot_demo.avi', frames)
-    start_time = time.time()
+    
     print("--- %s seconds ---" % (time.time() - start_time))
     return 
 
