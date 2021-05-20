@@ -1,7 +1,6 @@
 # Reference Scipy Cookbook Solve KdV
 # Import libraries
 import numpy as np
-from numpy.core.numeric import full
 from scipy.integrate import odeint
 from scipy.fftpack import diff as psdiff
 import matplotlib.pyplot as plt
