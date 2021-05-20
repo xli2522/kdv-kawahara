@@ -25,9 +25,8 @@ def main():
     t = np.linspace(0, T, 501)
 
     sol = solve_kdv(kdv_model, u0, t, L, 5000)
-    #print(sol[::-1, :])
-    #plot(sol, L, T)
-    animate(sol, L, T, 50)
+    plot(sol, L, T)
+    #animate(sol, L, T, 50)
     return
 
 # The KdV model using Fast Fourier Transform
