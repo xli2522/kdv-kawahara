@@ -11,36 +11,37 @@ import time
 def main():
     '''main numerical Kawahara solution function'''
     # Set the size of the domain, and create the discretized grid.
-    L = 50      #length of periodic boundary
-    N = 100      #number of spatial steps
+    L = 2*np.pi      #length of periodic boundary
+    N = 27      #number of spatial steps
     dx = L / (N - 1.0)      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis
 
     main_start = time.time()    
 
     # Set the time sample grid.
-    T = 100
+    T = 10
     t = np.linspace(0, T, 501)
     dt = len(t)
     
-    ############# TEST STABLE SOLUTION U0 #############
-    #############                         #############
+    ############# TEST STATIONARY SOLUTION U0 #############
+    #############                             #############
+    # guessed parameters
     param = [1, 0.25, 1, 0.01, -0.1798]      #[alpha, beta, sigma, epsilon, lamb]
 
     # Not exact for two solitons on a periodic domain, but close enough...
     #u0 = waveEquation.kdv_soliton_solution(x-0.33*L, 0.75)
     leading_terms = waveEquation.u0_leading_terms(param)
-    u0 = waveEquation.kawahara_stationary_solution(x, leading_terms, param)
+    u0 = waveEquation.kawahara_stationary_solution(x, leading_terms, L, param)
 
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, u0, t, L, param, 5000)
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
-    ############# TEST STABLE SOLUTION U0 #############
-    #############                         #############
+    ############# TEST STATIONARY SOLUTION U0 #############
+    #############                             #############
 
     #visual.plot_profile(sol, 250, N)
-    visual.plot_video(sol, len(t), N, 'kawahara_test.avi')
+    #visual.plot_video(sol, len(t), N, 'kawahara_test.avi')
     #numAnalysis.amplitude(sol, len(t))
-    #visual.plot_all(sol, L, T)
+    visual.plot_all(sol, L, T)
 
     return
 
@@ -88,11 +89,11 @@ class waveEquation:
         alpha, beta, sigma, epsilon, _, = param
         v0 = alpha - beta
 
-        a1 = 0.001    
+        a1 = 1    
         a0 = -(sigma/2)*(1/v0)*a1**2 + epsilon**3                                       #equation (28)
         a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2 + epsilon**3                     #equation (29)
-        a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1 + epsilon**3                   #equation (30)
-        a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1) + epsilon**3         #equation (31)
+        a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1 + epsilon**4                   #equation (30)
+        a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1) + epsilon**5         #equation (31)
         
         leading_terms = [a1, a0, a2, a3, a4]
 
@@ -112,7 +113,7 @@ class waveEquation:
 
         return leading_terms
 
-    def kawahara_stationary_solution(x, leading_terms, param=None):
+    def kawahara_stationary_solution(x, leading_terms, L, param=None):
         '''The stable solution to the Kawahara
             reference: 
                 STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
@@ -122,6 +123,7 @@ class waveEquation:
         Input:
                 x                   (float)     position 
                 leading_terms       (list)      leading terms = [a1, a0, a2, a3, a4]
+                L                   (int)       length of the periodic range
                 param               (list)      parameters = [alpha, beta, sigma, epsilon, lamb],
                                                                                 default = None
         Output:
@@ -130,8 +132,8 @@ class waveEquation:
         '''
         a1, a0, a2, a3, a4 = leading_terms
 
+        #u0 = a0 + a1*np.cos(2*np.pi/L*x) + a2*np.cos(2*np.pi/L*2*x) + a3*np.cos(2*np.pi/L*4*x)
         u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(4*x)
-
         return u0
 
     def kawahara_combined_solution(u0, x, leading_terms, param, t):
@@ -189,7 +191,7 @@ class waveEquation:
         Output:
             sol     (array)     periodic solutions'''
 
-        sol = odeint(model, u0, t, args=(L, param), mxstep=steps)
+        sol = odeint(model, u0, t, args=(L, param, False), mxstep=steps)
 
         return sol
 
@@ -254,7 +256,7 @@ class visual:
         images=[]       #set up image container
         maxAmp = max(sol[0])
         for i in range(T):      #loop through every frame
-            if i%5 == 0:        #sample every 5 frames
+            if i%2 == 0:        #sample every 2 frames
                 fig, ax = plt.subplots()   #initialize figure
                 ax.plot(np.arange(N), sol[i])
                 ax.set_xlabel('Position x')
