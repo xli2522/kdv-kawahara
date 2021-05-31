@@ -52,7 +52,7 @@ class waveEquation:
         dudt = -6*u*ux - uxxx                   #KdV model; time differential
 
         return dudt
-
+        
     # The approximated soliton solution to the KdV
     def kdv_soliton_solution(x, c):
         '''The exact soliton solution to the KdV
@@ -62,8 +62,8 @@ class waveEquation:
         Output:
                 u   (float)     wave amplitude
         '''
-        #u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)
-        u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)-0.005*x
+        u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)
+        #u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)-0.005*x
 
         return u
 
@@ -132,7 +132,8 @@ class visual:
             fps     (int)      time instance of the wave profile
             
         Output:
-            plot of the wave profile at time t      (plt)'''
+            None
+        '''
         images=[]       #set up image container
         maxAmp = max(sol[0])
         for i in range(T):      #loop through every frame
