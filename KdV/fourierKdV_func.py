@@ -122,7 +122,7 @@ def animate(sol, rangeX, rangeT, frames):
         plt.title('Korteweg-de Vries on a Periodic Domain')
         #print('frame '+ str(n))
         images = imv.memory.savebuff(plt, images)
-        plt.clf()
+        plt.close()
 
     print('begin video construction')
     revImg = reversed(images)

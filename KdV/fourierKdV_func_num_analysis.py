@@ -145,7 +145,7 @@ class visual:
                 ax.set_ylim(0, 1.1*maxAmp)
                 ax.set_title('Wave Profile at Time ' + str())
                 images = imv.memory.savebuff(plt, images)       #save image to the temp container
-                plt.clf()
+                plt.close()
         imv.memory.construct(images, 'kdv_profile.avi', fps)        #construct the video 
 
         return
