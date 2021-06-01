@@ -7,6 +7,7 @@ from scipy.fftpack import diff as psdiff
 import matplotlib.pyplot as plt
 import imvideo as imv       #dependent on opencv; use pip install opencv-python: note: it uses namespace cv2
 import time
+from tqdm import tqdm       #progress bar
 
 def main():
     '''main numerical Kawahara solution function'''
@@ -19,8 +20,8 @@ def main():
     main_start = time.time()    
 
     # Set the time sample grid.
-    T = 10
-    t = np.linspace(0, T, 501)
+    T = 2
+    t = np.linspace(0, T, 400)
     dt = len(t)
     
     ############# TEST STATIONARY SOLUTION U0 #############
@@ -30,7 +31,7 @@ def main():
 
     # Not exact for two solitons on a periodic domain, but close enough...
     #u0 = waveEquation.kdv_soliton_solution(x-0.33*L, 0.75)
-    leading_terms = waveEquation.u0_leading_terms(param)
+    leading_terms = waveEquation.u0_leading_terms(param, 0.05)
     u0 = waveEquation.kawahara_stationary_solution(x, leading_terms, L, param)
 
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, u0, t, L, param, 5000)
@@ -39,9 +40,9 @@ def main():
     #############                             #############
 
     #visual.plot_profile(sol, 250, N)
-    #visual.plot_video(sol, len(t), N, 'kawahara_test.avi')
+    visual.plot_video(sol, len(t), N, 'kawahara_test.avi')
     #numAnalysis.amplitude(sol, len(t))
-    visual.plot_all(sol, L, T)
+    #visual.plot_all(sol, L, T)
 
     return
 
@@ -78,10 +79,11 @@ class waveEquation:
 
         return dudt
 
-    def u0_leading_terms(param):
+    def u0_leading_terms(param, a1):
         '''Calculates the leading terms in equation (24) - the stationary term u0
         Input:
                 param               (list)      list of parameters [alpha, beta, sigma, epsilon, lamb]
+                a1                  (float)     the initial guess of a1
         Output:
                 leading_terms       (list)      list of leading terms in equation (24)
                                                     [a1, a0, a2, a3, a4]
@@ -89,7 +91,7 @@ class waveEquation:
         alpha, beta, sigma, epsilon, _, = param
         v0 = alpha - beta
 
-        a1 = 1    
+        
         a0 = -(sigma/2)*(1/v0)*a1**2 + epsilon**3                                       #equation (28)
         a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2 + epsilon**3                     #equation (29)
         a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1 + epsilon**4                   #equation (30)
@@ -230,7 +232,7 @@ class visual:
         for i in range(len(sol)):       #loop through every frame
             if i == t:
                 fig, ax = plt.subplots()   #initialize figure
-                ax.plot(np.arange(N), sol[t])
+                ax.plot(2*np.pi/N*np.arange(N), sol[t])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
                 ax.set_title('Wave Profile at Time ' + str())
@@ -255,22 +257,23 @@ class visual:
         '''
         images=[]       #set up image container
         maxAmp = max(sol[0])
-        for i in range(T):      #loop through every frame
+        for i in tqdm(range(T)):      #loop through every frame
             if i%2 == 0:        #sample every 2 frames
                 fig, ax = plt.subplots()   #initialize figure
-                ax.plot(np.arange(N), sol[i])
+                ax.plot(2*np.pi/N*np.arange(N), sol[i])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
-                ax.set_ylim(0, 1.1*maxAmp)
+                ax.set_ylim(-1.1*maxAmp, 1.1*maxAmp)
                 ax.set_title('Wave Profile at Time ' + str())
                 images = imv.memory.savebuff(plt, images)       #save image to the temp container
-                plt.clf()
+                plt.close()
 
         imv.memory.construct(images, str(title), fps)        #construct the video 
 
         return
 
 class numAnalysis:
+    '''numerical stability analysis'''
     def amplitude(sol, T):
         '''the numerical analysis of the wave amplitude over time
         Input: 
@@ -308,6 +311,63 @@ class numAnalysis:
         '''the numerical analysis of coefficients and stability'''
 
         return
+
+class paraEst:
+    '''numerical parameter estimation'''
+    def stationary_param():
+        '''tests parameters in the stationary solution u0 ranges from [0.0001 to 0.0125] based on experiments + guesses
+        reference: 
+                STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
+                    TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
+            refered to as u0; equation (24)
+            elements obtained by solving (28), (29), (30), (31)
+        
+        Criteria for stable candidate:
+        1)  integration speed is greater then x steps per second
+        2)  calculated wave profile is smooth (second derivative within a range [a, b])
+        3)  no sudden change of wave profile between immediate time steps
+        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
+        '''
+
+        return 
+
+    def perturbation_param():
+        '''tests parameters in the stationary solution u1 ranges from [0.? to 0.?] based on experiments + guesses
+        reference: 
+                STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
+                    TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
+            refered to as u1; parameters see equation (9)
+
+        Criteria for stable candidate:
+        1)  integration speed is greater then x steps per second
+        2)  calculated wave profile is smooth (second derivative within a range [c, d])
+        3)  no sudden change of wave profile between immediate time steps
+        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
+        '''
+
+        return
+    
+    def kawahara_param():
+
+        return 
+
+
+
+'''
+######      logs        ######
+######                  ######
+
+###  $$$    NOTE    $$$    ###
+#may use double for higher precision when necessary
+
+###  $$$    BUG    $$$    ###
+#setting title=None and then define title to a string 
+#      causes imvideo --> cv2 --> unable to obtain image spec error
+
+######      logs        ######
+######                  ######
+
+'''
 
 if __name__ == "__main__":
     main()
