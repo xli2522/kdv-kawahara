@@ -1,8 +1,6 @@
 # Kawahara Numerical Stability Analysis
 # Import libraries
 import numpy as np
-from numpy.core.numeric import identity
-from numpy.core.shape_base import atleast_2d
 from scipy.integrate import odeint
 from scipy.fftpack import diff as psdiff
 import matplotlib.pyplot as plt
@@ -17,7 +15,7 @@ def main():
     N = 27      #number of spatial steps
     dx = L / (N - 1.0)      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis
-
+    
     main_start = time.time()    
 
     # Set the time sample grid.
