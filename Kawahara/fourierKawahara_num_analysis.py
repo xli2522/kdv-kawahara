@@ -1,6 +1,7 @@
 # Kawahara Numerical Stability Analysis
 # Import libraries
 import numpy as np
+from numpy.core.numeric import identity
 from numpy.core.shape_base import atleast_2d
 from scipy.integrate import odeint
 from scipy.fftpack import diff as psdiff
@@ -20,10 +21,12 @@ def main():
     main_start = time.time()    
 
     # Set the time sample grid.
-    T = 2
-    t = np.linspace(0, T, 400)
+    T = 4
+    t = np.linspace(0, T, 800)
+    combined_solution_t = np.linspace(0, T, N)          #in combined solution, t and x have the same number of steps
     dt = len(t)
     
+    '''
     ############# TEST STATIONARY SOLUTION U0 #############
     #############                             #############
     # guessed parameters
@@ -31,25 +34,42 @@ def main():
 
     # Not exact for two solitons on a periodic domain, but close enough...
     #u0 = waveEquation.kdv_soliton_solution(x-0.33*L, 0.75)
-    leading_terms = waveEquation.u0_leading_terms(param, 0.05)
+    leading_terms = waveEquation.u0_leading_terms(param, 0.01)
     u0 = waveEquation.kawahara_stationary_solution(x, leading_terms, L, param)
 
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, u0, t, L, param, 5000)
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+    
+    visual.plot_video(sol, len(t), N, 'kawahara_stationary_v0.avi')
     ############# TEST STATIONARY SOLUTION U0 #############
+    #############                             #############
+    '''
+    #############     TEST FULL SOLUTION U    #############
+    #############                             #############
+    # guessed parameters
+    param1 = [1, 0.25, 1, 0.01, -0.1798]      # [alpha, beta, sigma, epsilon, lamb]
+    param2 = [0.01, -0.1798, 0.7845]                # [delta, lamb, mu]
+
+    leading_terms_u0 = waveEquation.u0_leading_terms(param1, 0.01)
+    stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
+    leading_terms_u1 = waveEquation.u1_leading_terms()
+    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, combined_solution_t)
+
+    sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
+    print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+
+    visual.plot_video(sol, len(t), N, 'kawahara_combined_v0.avi')
+    #############     TEST FULL SOLUTION U    #############
     #############                             #############
 
     #visual.plot_profile(sol, 250, N)
-    visual.plot_video(sol, len(t), N, 'kawahara_test.avi')
     #numAnalysis.amplitude(sol, len(t))
     #visual.plot_all(sol, L, T)
 
     return
 
 class waveEquation:
-    '''
-    class waveEquation is under development and testing
-    '''
+    '''class waveEquation is under development and testing'''
     # The Kawahara model using Fast Fourier Transform
     def kawahara_model(u, t,  L, param, follow_wave_profile=False):
         '''The Kawahara model using FFT
@@ -91,25 +111,26 @@ class waveEquation:
         alpha, beta, sigma, epsilon, _, = param
         v0 = alpha - beta
 
-        
-        a0 = -(sigma/2)*(1/v0)*a1**2 + epsilon**3                                       #equation (28)
-        a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2 + epsilon**3                     #equation (29)
-        a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1 + epsilon**4                   #equation (30)
-        a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1) + epsilon**5         #equation (31)
+        a0 = -(sigma/2)*(1/v0)*a1**2                                       #equation (28)
+        a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2                     #equation (29)
+        a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1                   #equation (30)
+        a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1)         #equation (31)
         
         leading_terms = [a1, a0, a2, a3, a4]
 
         return leading_terms
 
-    def u1_leading_terms(param):
+    def u1_leading_terms(param=None):
         '''Calculates the leading terms in equation (24) - the perturbation term u1
         Input:
                 param               (list)      list of parameters [alpha, beta, sigma, epsilon, lamb]
+                                    default = None
         Output:
                 leading_terms       (list)      list of leading terms in equation (9)
                                                     [b1, b2, b3, b4]
         '''
-        alpha, beta, sigma, epsilon, lamb = param
+        if param != None:
+            alpha, beta, sigma, epsilon, lamb = param
         b1 = b2 = b3 = b4 = 0.001
         leading_terms = b1, b2, b3, b4 
 
@@ -138,7 +159,7 @@ class waveEquation:
         u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(4*x)
         return u0
 
-    def kawahara_combined_solution(u0, x, leading_terms, param, t):
+    def kawahara_combined_solution(u0, x, leading_terms_u1, param, t):
         '''The combined solution to the Kawahara --> u0 stationary + u1 perturbation
             reference: 
                 STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
@@ -149,7 +170,7 @@ class waveEquation:
                 u0                  (func)      kawahara_stable_solution ==> u0 in equation (5)
                 x                   (float)     position
                 param               (list)      [delta, lamb, mu]  eigenvalue
-                leading_terms       (list)      leading terms in equation (9)
+                leading_terms_u1    (list)      leading terms in equation (9)
                 t                   (float)     time
 
         Output:
@@ -158,18 +179,18 @@ class waveEquation:
                     tentative values:   1) stable: -0.1798; 2) unstable: 7*10**(-6) + i0.277
         '''
         delta, lamb, mu = param
-        b1, b2, b3, b4 = leading_terms
+        b1, b2, b3, b4 = leading_terms_u1
 
         #experiment with complex calculation accuracy
         u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x)
 
-        u = np.real(u0 + delta*np.exp(lamb*t)*u1)
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
 
         return u
 
     def kdv_soliton_solution(x, c):
-        '''The exact soliton solution to general KdV
+        '''The approximated exact soliton solution to general KdV
         Input: 
                 x   (float)     variable 1
                 c   (float)     variable 2
@@ -177,7 +198,6 @@ class waveEquation:
                 u   (float)     wave amplitude
         '''
         u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)
-        #u = 0.5*c*np.cosh(0.5*np.sqrt(c)*x)**(-2)-0.005*x
 
         return u
 
@@ -193,11 +213,12 @@ class waveEquation:
         Output:
             sol     (array)     periodic solutions'''
 
-        sol = odeint(model, u0, t, args=(L, param, False), mxstep=steps)
+        sol = odeint(model, u0, t, args=(L, param, True), mxstep=steps)
 
         return sol
 
 class visual:
+    '''visual display of results'''
     def plot_all(sol, rangeX, rangeT):
             '''plot the full t-x KdV solution
             Input:
@@ -301,8 +322,15 @@ class numAnalysis:
     def stable(sol):
         '''check if the solution is long-term stable based on a set of criteria
         Input: 
-            sol     (array)     solution array
+                sol     (array)     solution array
         Output:
+                ?
+
+        Criteria for stable candidate:
+        1)  integration speed is greater then x steps per second
+        2)  calculated wave profile is smooth (second derivative within a range [a, b])
+        3)  no sudden change of wave profile between immediate time steps
+        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
         '''
 
         return
@@ -314,14 +342,18 @@ class numAnalysis:
 
 class paraEst:
     '''numerical parameter estimation'''
-    def stationary_param():
-        '''tests parameters in the stationary solution u0 ranges from [0.0001 to 0.0125] based on experiments + guesses
+    def stationary_param(stable):
+        '''tests parameters in the stationary solution u0 ranges from [0.? to 0.?] based on experiments + guesses
         reference: 
                 STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
                     TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
             refered to as u0; equation (24)
             elements obtained by solving (28), (29), (30), (31)
-        
+        Input:
+                stable          (function)          the stability testing function from numAnalysis
+        Output:
+                ?
+
         Criteria for stable candidate:
         1)  integration speed is greater then x steps per second
         2)  calculated wave profile is smooth (second derivative within a range [a, b])
@@ -351,23 +383,12 @@ class paraEst:
 
         return 
 
-
-
-'''
-######      logs        ######
-######                  ######
-
 ###  $$$    NOTE    $$$    ###
 #may use double for higher precision when necessary
 
 ###  $$$    BUG    $$$    ###
 #setting title=None and then define title to a string 
 #      causes imvideo --> cv2 --> unable to obtain image spec error
-
-######      logs        ######
-######                  ######
-
-'''
 
 if __name__ == "__main__":
     main()
