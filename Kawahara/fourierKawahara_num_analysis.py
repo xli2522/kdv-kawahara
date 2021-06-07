@@ -19,9 +19,8 @@ def main():
     main_start = time.time()    
 
     # Set the time sample grid.
-    T = 4
-    t = np.linspace(0, T, 800)
-    combined_solution_t = np.linspace(0, T, N)          #in combined solution, t and x have the same number of steps
+    T = 2
+    t = np.linspace(0, T, 400)
     dt = len(t)
     
     '''
@@ -51,12 +50,11 @@ def main():
     leading_terms_u0 = waveEquation.u0_leading_terms(param1, 0.01)
     stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
     leading_terms_u1 = waveEquation.u1_leading_terms()
-    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, combined_solution_t)
-
+    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
 
-    visual.plot_video(sol, len(t), N, 'kawahara_combined_v0.avi')
+    visual.plot_video(sol, len(t), N, 'kawahara_combined_v0_Ttest.avi')
     #############     TEST FULL SOLUTION U    #############
     #############                             #############
 
@@ -184,7 +182,7 @@ class waveEquation:
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x)
 
         u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
-
+        
         return u
 
     def kdv_soliton_solution(x, c):
@@ -203,8 +201,8 @@ class waveEquation:
         '''Solve the Kawahara using Scipy odeint
         Input:
             model               Kawahara model
-            u0      (float/int) initial amplitude
-            t       (int)       time range
+            u0      (array)     initial amplitude
+            t       (array)     time range
             L       (int)       periodic range
             param   (list)      parameters = [alpha, beta, sigma, epsilon, lamb] 
             steps   (int)       maximum steps allowed
