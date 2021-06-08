@@ -19,42 +19,33 @@ def main():
     main_start = time.time()    
 
     # Set the time sample grid.
-    T = 2
-    t = np.linspace(0, T, 400)
+    T = 10
+    t = np.linspace(0, T, 2000)
     dt = len(t)
     
-    '''
-    ############# TEST STATIONARY SOLUTION U0 #############
-    #############                             #############
-    # guessed parameters
-    param = [1, 0.25, 1, 0.01, -0.1798]      #[alpha, beta, sigma, epsilon, lamb]
-
-    # Not exact for two solitons on a periodic domain, but close enough...
-    #u0 = waveEquation.kdv_soliton_solution(x-0.33*L, 0.75)
-    leading_terms = waveEquation.u0_leading_terms(param, 0.01)
-    u0 = waveEquation.kawahara_stationary_solution(x, leading_terms, L, param)
-
-    sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, u0, t, L, param, 5000)
-    print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
-    
-    visual.plot_video(sol, len(t), N, 'kawahara_stationary_v0.avi')
-    ############# TEST STATIONARY SOLUTION U0 #############
-    #############                             #############
-    '''
     #############     TEST FULL SOLUTION U    #############
     #############                             #############
     # guessed parameters
     param1 = [1, 0.25, 1, 0.01, -0.1798]      # [alpha, beta, sigma, epsilon, lamb]
-    param2 = [0.01, -0.1798, 0.7845]                # [delta, lamb, mu]
+    param2 = [0.01, -0.1798, 0.7845, 1, 0.25, 1]                # [delta, lamb, mu, alpha, beta, sigma]
 
-    leading_terms_u0 = waveEquation.u0_leading_terms(param1, 0.01)
+    leading_terms_u0 = waveEquation.u0_leading_terms(param1, 0.5)
+    with open('kawahara_parameters.txt', "w") as f:
+            f.write(str(main_start)+' '+ str(T)+' times '+ str(len(t))+' steps main parameters: '+str(param1)+' u0 parameters: '+ str(leading_terms_u0))
+            
     stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
-    leading_terms_u1 = waveEquation.u1_leading_terms()
-    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
+    leading_terms_u1 = waveEquation.u1_leading_terms(param2)
+    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 1)
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+    
+    visual.plot_video(sol, len(t), N, str(main_start)+'_beta_'+str(param1[1])+'kawahara_combined_v0_Ttest.avi')
 
-    visual.plot_video(sol, len(t), N, 'kawahara_combined_v0_Ttest.avi')
+    # SAVE THE FULL SOLUTION
+    with open('kawahara_'+str(T)+'time'+str(len(t))+'steps'+'_beta_'+str(param1[1])+str(main_start)+'.txt', "w") as f:
+        for i in sol:
+            f.write(str(i))
+
     #############     TEST FULL SOLUTION U    #############
     #############                             #############
 
@@ -111,22 +102,42 @@ class waveEquation:
         a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2                     #equation (29)
         a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1                   #equation (30)
         a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1)         #equation (31)
-        
+
         leading_terms = [a1, a0, a2, a3, a4]
 
         return leading_terms
 
     def u1_leading_terms(param=None):
         '''Calculates the leading terms in equation (24) - the perturbation term u1
+            The calculation follows the procedure described in equation (35), (36), (37), (38)
         Input:
-                param               (list)      list of parameters [alpha, beta, sigma, epsilon, lamb]
+                param               (list)      list of parameters [delta, lamb, mu, alpha, beta, sigma]
                                     default = None
         Output:
                 leading_terms       (list)      list of leading terms in equation (9)
                                                     [b1, b2, b3, b4]
         '''
         if param != None:
-            alpha, beta, sigma, epsilon, lamb = param
+            delta, lamb, mu, alpha, beta, sigma = param
+        V = alpha - beta
+
+        #MATRIX OPERATION
+        '''
+        #S = iD + iT
+        #Matrix D
+        D = np.zeros(8)     # only take the first 8 leading terms
+        #Matrix T
+        matrixT = np.zeros((8, 8))
+        for i in range(len(D)):
+            n = i - len(D)/2       #len(D) is guaranteed to be even
+            D[i] = (n + mu)*V - (-n + mu)**3*alpha + (n + mu)**5*beta
+
+            for n in range(len(matrixT[0])):
+                matrixT[i][n] = 2*sigma
+        matrixD = np.diag(D)
+
+        matrixS = 1j*matrixD*1j*matrixT
+        '''
         b1 = b2 = b3 = b4 = 0.001
         leading_terms = b1, b2, b3, b4 
 
@@ -165,7 +176,7 @@ class waveEquation:
                 initial amplitude of the stable solution
                 u0                  (func)      kawahara_stable_solution ==> u0 in equation (5)
                 x                   (float)     position
-                param               (list)      [delta, lamb, mu]  eigenvalue
+                param               (list)      [delta, lamb, mu, alpha, beta, sigma]  eigenvalue
                 leading_terms_u1    (list)      leading terms in equation (9)
                 t                   (float)     time
 
@@ -174,7 +185,7 @@ class waveEquation:
         Note:   lamb -->  the eigenvalue  
                     tentative values:   1) stable: -0.1798; 2) unstable: 7*10**(-6) + i0.277
         '''
-        delta, lamb, mu = param
+        delta, lamb, mu, _, __, ___,= param
         b1, b2, b3, b4 = leading_terms_u1
 
         #experiment with complex calculation accuracy
@@ -274,13 +285,14 @@ class visual:
         '''
         images=[]       #set up image container
         maxAmp = max(sol[0])
+        minAmp = min(sol[0])
         for i in tqdm(range(T)):      #loop through every frame
             if i%2 == 0:        #sample every 2 frames
                 fig, ax = plt.subplots()   #initialize figure
                 ax.plot(2*np.pi/N*np.arange(N), sol[i])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
-                ax.set_ylim(-1.1*maxAmp, 1.1*maxAmp)
+                ax.set_ylim(-1.1*minAmp, 1.1*maxAmp)
                 ax.set_title('Wave Profile at Time ' + str())
                 images = imv.memory.savebuff(plt, images)       #save image to the temp container
                 plt.close()
@@ -291,7 +303,7 @@ class visual:
 
 class numAnalysis:
     '''numerical stability analysis'''
-    def amplitude(sol, T):
+    def amplitude(sol, T, mid=None):
         '''the numerical analysis of the wave amplitude over time
         Input: 
             sol     (array)     the solution array
@@ -333,6 +345,15 @@ class numAnalysis:
 
     def coefficient():
         '''the numerical analysis of coefficients and stability'''
+
+        return
+
+    def bifurcation():
+        '''Reproduces the bifurcation diagrams in 
+        STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
+                        TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
+                        Figure 4, 5, 6, 7, 8
+        '''
 
         return
 
@@ -378,6 +399,22 @@ class paraEst:
     def kawahara_param():
 
         return 
+
+class operation:
+    def num_continue():
+        '''Resume a numerical calculation of the Kawahara'''
+
+        return
+
+    def num_batches(n):
+        '''Numerical calculation of the Kawahara in n batches'''
+        T_batch = 2
+        print('batch progress...')
+        for i in tqdm(range(n)):
+            T_batch += i 
+            t_batch = np.linspace(T_batch - 2, T_batch, 400)
+
+        return
 
 ###  $$$    NOTE    $$$    ###
 #may use double for higher precision when necessary
