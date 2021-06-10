@@ -1,6 +1,8 @@
 # Kawahara Numerical Stability Analysis
 # Import libraries
 import numpy as np
+from numpy.core.fromnumeric import size
+from numpy.lib.function_base import average
 from scipy.integrate import odeint
 from scipy.fftpack import diff as psdiff
 import matplotlib.pyplot as plt
@@ -12,46 +14,78 @@ def main():
     '''main numerical Kawahara solution function'''
     # Set the size of the domain, and create the discretized grid.
     L = 2*np.pi      #length of periodic boundary
-    N = 27      #number of spatial steps
+    N = 30      #number of spatial steps
     dx = L / (N - 1.0)      #spatial step size
-    x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis
-    
-    main_start = time.time()    
+    x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
 
     # Set the time sample grid.
-    T = 10
-    t = np.linspace(0, T, 2000)
+    T = 20
+    t = np.linspace(0, T, 4000)
     dt = len(t)
     
+    '''
     #############     TEST FULL SOLUTION U    #############
     #############                             #############
     # guessed parameters
-    param1 = [1, 0.25, 1, 0.01, -0.1798]      # [alpha, beta, sigma, epsilon, lamb]
-    param2 = [0.01, -0.1798, 0.7845, 1, 0.25, 1]                # [delta, lamb, mu, alpha, beta, sigma]
+    mus = [0.7845, 0.6324, -0.7928]
+    lambs = [-0.1798, 0.2277, 0.2128]
+    std = np.zeros(len(mus))
+    for i in tqdm(range(len(mus))):
+        main_start = time.time()
 
-    leading_terms_u0 = waveEquation.u0_leading_terms(param1, 0.5)
-    with open('kawahara_parameters.txt', "w") as f:
-            f.write(str(main_start)+' '+ str(T)+' times '+ str(len(t))+' steps main parameters: '+str(param1)+' u0 parameters: '+ str(leading_terms_u0))
-            
-    stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
-    leading_terms_u1 = waveEquation.u1_leading_terms(param2)
-    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 1)
-    sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
-    print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
-    
-    visual.plot_video(sol, len(t), N, str(main_start)+'_beta_'+str(param1[1])+'kawahara_combined_v0_Ttest.avi')
+        param1 = [1, 0.25, 1, 0.01, lambs[i] ]      # [alpha, beta, sigma, epsilon, lamb]
+        param2 = [0.01, lambs[i], mus[i], 1, 0.25, 1]                # [delta, lamb, mu, alpha, beta, sigma]
+        a1 = param1[3]      #a1 = epsilon
+        leading_terms_u0 = waveEquation.u0_leading_terms(param1, a1)
+        #with open('kawahara_parameters.txt', "w") as f:
+                #f.write(str(main_start)+' '+ str(T)+' times '+ str(len(t))+' steps main parameters: '+str(param1)+' u0 parameters: '+ str(leading_terms_u0))
+                
+        stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
+        leading_terms_u1 = waveEquation.u1_leading_terms(param2)
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)     # t = 0.01
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
+        print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+
+        std[i] = numAnalysis.amplitude(sol, len(t), title='Table1_'+str(i)+'_a1_'+str(a1)+'.png')
+        visual.plot_video(sol, len(t), N, 'Table1_'+str(i)+'_a1_'+str(a1)+'.avi')
+
+    numAnalysis.simple_plot(std)
 
     # SAVE THE FULL SOLUTION
-    with open('kawahara_'+str(T)+'time'+str(len(t))+'steps'+'_beta_'+str(param1[1])+str(main_start)+'.txt', "w") as f:
-        for i in sol:
-            f.write(str(i))
+    #with open('kawahara_'+str(T)+'time'+str(len(t))+'steps'+'_beta_'+str(param1[1])+str(main_start)+'.txt', "w") as f:
+        #for i in sol:
+            #f.write(str(i))
 
     #############     TEST FULL SOLUTION U    #############
-    #############                             #############
+    #############                             #############'''
 
-    #visual.plot_profile(sol, 250, N)
-    #numAnalysis.amplitude(sol, len(t))
-    #visual.plot_all(sol, L, T)
+    #############     Table 2   SOLUTION U    #############
+    #############                             #############
+   
+    mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
+    lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+    std = np.zeros(len(mus))
+
+    for i in tqdm(range(len(mus))):
+        param1 = [1, 3/160, 1, 0.01, lambs[i]]      # [alpha, beta, sigma, epsilon, lamb]
+        param2 = [0.01, lambs[i], mus[i], 1, 3/160, 1]                # [delta, lamb, mu, alpha, beta, sigma]
+        a1 = param1[3]
+        leading_terms_u0 = waveEquation.u0_leading_terms(param1, a1)
+        stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
+        leading_terms_u1 = waveEquation.u1_leading_terms(param2)
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
+        # SAVE THE FULL SOLUTION
+        with open('kawahara_Table2_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
+            for row in sol:
+                f.write(str(row))
+
+        std[i] = numAnalysis.amplitude(sol, len(t), title='Table2_2pi_'+str(i)+'.png')
+        visual.plot_video(sol, len(t), N, 'Table2_2pi_'+str(i)+ '.avi')
+        #visual.plot_profile(sol, 250, N)
+        #visual.plot_all(sol, L, T)
+
+    numAnalysis.simple_plot(std)    
 
     return
 
@@ -99,10 +133,12 @@ class waveEquation:
         v0 = alpha - beta
 
         a0 = -(sigma/2)*(1/v0)*a1**2                                       #equation (28)
-        a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2                     #equation (29)
+        if float(beta) == 0.2:
+            a2 = a1/2
+        else:
+            a2 = -(sigma/2)*(1/(v0-4*alpha+16*beta))*a1**2                     #equation (29)
         a3 = -(sigma/2)*(1/(v0-9*alpha+81*beta))*2*a2*a1                   #equation (30)
         a4 = -(sigma/2)*(1/(v0-16*alpha+256*beta))*(a2**2+2*a2*a1)         #equation (31)
-
         leading_terms = [a1, a0, a2, a3, a4]
 
         return leading_terms
@@ -138,7 +174,7 @@ class waveEquation:
 
         matrixS = 1j*matrixD*1j*matrixT
         '''
-        b1 = b2 = b3 = b4 = 0.001
+        b1 = b2 = b3 = b4 = 0.01
         leading_terms = b1, b2, b3, b4 
 
         return leading_terms
@@ -193,7 +229,8 @@ class waveEquation:
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x)
 
         u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
-        
+        #u = np.real(delta*np.exp(lamb*t)*u1)
+
         return u
 
     def kdv_soliton_solution(x, c):
@@ -247,13 +284,13 @@ class visual:
 
             return 
 
-    def plot_profile(sol, t, N):
+    def plot_profile(sol, t, N, title):
         '''plot the wave profile at time t in the periodic domain with range N
         Input:
             sol     (array)     the solution array of the wave equation
             t       (int)       time instance of the wave profile
             N       (int)       the number of spatial steps
-            
+            title   (string)    title
         Output:
             None'''
 
@@ -263,7 +300,7 @@ class visual:
                 ax.plot(2*np.pi/N*np.arange(N), sol[t])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
-                ax.set_title('Wave Profile at Time ' + str())
+                ax.set_title('Wave Profile at Time ' + str(title))
                 plt.show()
 
         return 
@@ -287,12 +324,12 @@ class visual:
         maxAmp = max(sol[0])
         minAmp = min(sol[0])
         for i in tqdm(range(T)):      #loop through every frame
-            if i%2 == 0:        #sample every 2 frames
+            if i%5 == 0:        #sample every 5 frames
                 fig, ax = plt.subplots()   #initialize figure
                 ax.plot(2*np.pi/N*np.arange(N), sol[i])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
-                ax.set_ylim(-1.1*minAmp, 1.1*maxAmp)
+                ax.set_ylim(1.1*minAmp, 1.1*maxAmp)
                 ax.set_title('Wave Profile at Time ' + str())
                 images = imv.memory.savebuff(plt, images)       #save image to the temp container
                 plt.close()
@@ -303,102 +340,48 @@ class visual:
 
 class numAnalysis:
     '''numerical stability analysis'''
-    def amplitude(sol, T, mid=None):
-        '''the numerical analysis of the wave amplitude over time
+    def amplitude(sol, T, title=None, mid=None):
+        '''the numerical analysis of the max wave amplitude over time
         Input: 
             sol     (array)     the solution array
             T       (int)       the number of time steps
+            title   (string)    default = None
         Output:
+            ampStd  (float)     standard deviation
             plot of change in amplitude of the wave     (plt)'''
         amp = np.zeros(len(sol))
 
         for i in range(len(sol)):
-            amp[i]=max(sol[i])
-        
+            value = abs(max(sol[i])-min(sol[i]))
+            amp[i] = value
+
+        ampStd = np.std(amp)
         fig, ax = plt.subplots()
-        ax.scatter(range(T), amp)
+        ax.scatter(range(T), amp, s=40)
         ax.set_xlim(0, T)
-        ax.set_ylim(max(0.2*sol[0]), 1.5*max(sol[0]))
-        ax.set_xlabel('Time Step')
-        ax.set_ylabel('Amplitude')
-        ax.set_title('Amplitude vs. Time Step')
+        ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
+        ax.set_xlabel('Time Step     STD: '+str(ampStd))
+        ax.set_ylabel('Amplitude Difference')
+        ax.set_title('Amplitude Difference vs. Time Step')
 
-        plt.show()
+        if title == None:
+            plt.show()
+        else:
+            plt.savefig(str(title))
+        plt.clf()
 
+        return ampStd
+
+    def simple_plot(dat, id=None):
+        '''Simple Plot'''
+        fig, ax = plt.subplots()   #initialize figure
+        ax.plot(np.arange(len(dat)), dat)
+        ax.set_xlabel('Instance')
+        ax.set_ylabel('Standard Deviation')
+        ax.set_title('Standard Deviation vs. Instance')
+        plt.savefig('Std_'+str(time.time())+'_'+str(id)+'.png')
+        
         return
-
-    def stable(sol):
-        '''check if the solution is long-term stable based on a set of criteria
-        Input: 
-                sol     (array)     solution array
-        Output:
-                ?
-
-        Criteria for stable candidate:
-        1)  integration speed is greater then x steps per second
-        2)  calculated wave profile is smooth (second derivative within a range [a, b])
-        3)  no sudden change of wave profile between immediate time steps
-        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
-        '''
-
-        return
-
-    def coefficient():
-        '''the numerical analysis of coefficients and stability'''
-
-        return
-
-    def bifurcation():
-        '''Reproduces the bifurcation diagrams in 
-        STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
-                        TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
-                        Figure 4, 5, 6, 7, 8
-        '''
-
-        return
-
-class paraEst:
-    '''numerical parameter estimation'''
-    def stationary_param(stable):
-        '''tests parameters in the stationary solution u0 ranges from [0.? to 0.?] based on experiments + guesses
-        reference: 
-                STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
-                    TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
-            refered to as u0; equation (24)
-            elements obtained by solving (28), (29), (30), (31)
-        Input:
-                stable          (function)          the stability testing function from numAnalysis
-        Output:
-                ?
-
-        Criteria for stable candidate:
-        1)  integration speed is greater then x steps per second
-        2)  calculated wave profile is smooth (second derivative within a range [a, b])
-        3)  no sudden change of wave profile between immediate time steps
-        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
-        '''
-
-        return 
-
-    def perturbation_param():
-        '''tests parameters in the stationary solution u1 ranges from [0.? to 0.?] based on experiments + guesses
-        reference: 
-                STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS 
-                    TO THE KAWAHARA EQUATION (Olga Trichtchenko et al.)
-            refered to as u1; parameters see equation (9)
-
-        Criteria for stable candidate:
-        1)  integration speed is greater then x steps per second
-        2)  calculated wave profile is smooth (second derivative within a range [c, d])
-        3)  no sudden change of wave profile between immediate time steps
-        sample results every 5 time steps --> in each sampled time step, sample space steps around the peak
-        '''
-
-        return
-    
-    def kawahara_param():
-
-        return 
 
 class operation:
     def num_continue():
