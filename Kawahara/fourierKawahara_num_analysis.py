@@ -11,18 +11,81 @@ import time
 from tqdm import tqdm       #progress bar
 
 def main():
-    '''main numerical Kawahara solution function'''
-    # Set the size of the domain, and create the discretized grid.
-    L = 2*np.pi      #length of periodic boundary
-    N = 30      #number of spatial steps
-    dx = L / (N - 1.0)      #spatial step size
-    x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
+    '''main numerical Kawahara solution function
+    Instability:
+        # small amplitude a1 for large beta; --
+        # force exponential growth in space; --
+        # give u1 a longer period - (see figure 6 in reference arXiv:1512.01562v2); ^
+        # increase the number of modes - b0 - b7  ^
+    '''
+    #############     Table 2   SOLUTION U    #############
+    #############                             #############
 
-    # Set the time sample grid.
-    T = 20
-    t = np.linspace(0, T, 4000)
-    dt = len(t)
-    
+    #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
+    #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+
+    mus = [5.09]        #test individual cases - large mu
+    lambs = [62.82]        #test individual cases - large lambda
+    #mus = [0.632]      #test individual cases - small mu
+    #lambs = [0.227]        #test indivvidual cases - small lambda
+
+    std = np.zeros(len(mus))       
+    main_start = time.time()
+
+    for i in tqdm(range(len(mus))):
+
+        #####################################################################
+        # Set the size of the domain, and create the discretized grid.
+        #L = 2*np.pi/(abs(mus[i])-np.floor(abs(mus[i])))      #length of periodic boundary
+        L = 240*np.pi
+        #force a larger periodic domain
+        if L >= 10*np.pi:
+            L = L
+        else:
+            L = 10*np.pi
+        N = int(np.floor(30*L/(2*np.pi)))     #number of spatial steps; fit to the length of the periodic domain
+        dx = L / (N - 1.0)      #spatial step size
+        x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
+        print('Periodic Domain (u0&u1): ' + str(L))
+        print('Spatial steps: ' + str(N))
+        # Set the time sample grid.
+        T = 10
+        t = np.linspace(0, T, 2000)
+        dt = len(t)
+        ######################################################################
+
+        param1 = [1, 3/160, 1, 0.01, lambs[i]]      # [alpha, beta, sigma, epsilon, lamb]
+        param2 = [0.01, lambs[i], mus[i], 1, 3/160, 1]                # [delta, lamb, mu, alpha, beta, sigma]
+        a1 = 0.1*param1[3]      #DECREASE A1 WHEN BETA IS LARGE
+        ic_start = time.time()
+        leading_terms_u0 = waveEquation.u0_leading_terms(param1, a1)
+        stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
+        leading_terms_u1 = waveEquation.u1_leading_terms(param2)
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
+
+        print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
+        solver_start = time.time()
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
+        print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
+        print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+        
+        # SAVE THE FULL SOLUTION
+        with open('forced_blowup2pi_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
+            for row in sol:
+                f.write(str(row))
+        if 1.2*max(sol[0]) < max(sol[-1]):
+            print('Instability Possible')
+        elif 1.2*min(sol[0]) > min(sol[-1]):
+            print('Instability Possible')
+        else:
+            print('Expected to be Stable')
+
+        std[i] = numAnalysis.amplitude(sol, len(t), title='forced_blowup__2pi_'+str(i)+'.png')
+        visual.plot_video(sol, len(t), N, L, 'forced_blowup__2pi_'+str(i)+ '.avi')
+        #visual.plot_profile(sol, np.rint(3*dt/4), N)
+        visual.plot_all(sol, L, T)
+
+    #numAnalysis.simple_plot(std)    
     '''
     #############     TEST FULL SOLUTION U    #############
     #############                             #############
@@ -59,34 +122,6 @@ def main():
     #############     TEST FULL SOLUTION U    #############
     #############                             #############'''
 
-    #############     Table 2   SOLUTION U    #############
-    #############                             #############
-   
-    mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
-    lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
-    std = np.zeros(len(mus))
-
-    for i in tqdm(range(len(mus))):
-        param1 = [1, 3/160, 1, 0.01, lambs[i]]      # [alpha, beta, sigma, epsilon, lamb]
-        param2 = [0.01, lambs[i], mus[i], 1, 3/160, 1]                # [delta, lamb, mu, alpha, beta, sigma]
-        a1 = param1[3]
-        leading_terms_u0 = waveEquation.u0_leading_terms(param1, a1)
-        stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
-        leading_terms_u1 = waveEquation.u1_leading_terms(param2)
-        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
-        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000)
-        # SAVE THE FULL SOLUTION
-        with open('kawahara_Table2_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
-            for row in sol:
-                f.write(str(row))
-
-        std[i] = numAnalysis.amplitude(sol, len(t), title='Table2_2pi_'+str(i)+'.png')
-        visual.plot_video(sol, len(t), N, 'Table2_2pi_'+str(i)+ '.avi')
-        #visual.plot_profile(sol, 250, N)
-        #visual.plot_all(sol, L, T)
-
-    numAnalysis.simple_plot(std)    
-
     return
 
 class waveEquation:
@@ -103,6 +138,7 @@ class waveEquation:
         Output:
                 dudt    (float)     left side of the time differential
         '''
+        
         alpha, beta, sigma, _, __,= param
         v0 = alpha - beta
 
@@ -111,7 +147,7 @@ class waveEquation:
         uxxx = psdiff(u, period=L, order=3)     #3rd order differential 
         uxxxxx = psdiff(u, period=L, order=5)   #5th order differential
         u2x = psdiff(u**2, period=L)            #1st order differential; accuracy needs to be confirmed
-        
+
         if follow_wave_profile:
             # moving with wave
             dudt = v0*ux + alpha*uxxx + beta*uxxxxx + sigma*u2x #Kawahara model; moving reference frame; time differential
@@ -174,8 +210,8 @@ class waveEquation:
 
         matrixS = 1j*matrixD*1j*matrixT
         '''
-        b1 = b2 = b3 = b4 = 0.01
-        leading_terms = b1, b2, b3, b4 
+        b1 = b2 = b3 = b4 = b5 = b6 = b7 = 0.01         #approximate leading bs
+        leading_terms = b1, b2, b3, b4, b5, b6, b7
 
         return leading_terms
 
@@ -222,14 +258,16 @@ class waveEquation:
                     tentative values:   1) stable: -0.1798; 2) unstable: 7*10**(-6) + i0.277
         '''
         delta, lamb, mu, _, __, ___,= param
-        b1, b2, b3, b4 = leading_terms_u1
+        b1, b2, b3, b4, b5, b6, b7 = leading_terms_u1
 
         #experiment with complex calculation accuracy
         u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
-                b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x)
+                b5*np.exp(1j*(mu-5)*x) + b6*np.exp(1j*(mu-6)*x) + b7*np.exp(1j*(mu-7)*x) + \
+                b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
+                b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
 
         u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
-        #u = np.real(delta*np.exp(lamb*t)*u1)
+        #print('value of u1 '+str(u))
 
         return u
 
@@ -256,9 +294,9 @@ class waveEquation:
             steps   (int)       maximum steps allowed
         Output:
             sol     (array)     periodic solutions'''
-
+        
         sol = odeint(model, u0, t, args=(L, param, True), mxstep=steps)
-
+        
         return sol
 
 class visual:
@@ -284,33 +322,32 @@ class visual:
 
             return 
 
-    def plot_profile(sol, t, N, title):
+    def plot_profile(sol, t, N):
         '''plot the wave profile at time t in the periodic domain with range N
         Input:
             sol     (array)     the solution array of the wave equation
             t       (int)       time instance of the wave profile
             N       (int)       the number of spatial steps
-            title   (string)    title
+            #title   (string)    title
         Output:
             None'''
 
-        for i in range(len(sol)):       #loop through every frame
-            if i == t:
-                fig, ax = plt.subplots()   #initialize figure
-                ax.plot(2*np.pi/N*np.arange(N), sol[t])
-                ax.set_xlabel('Position x')
-                ax.set_ylabel('Amplitude')
-                ax.set_title('Wave Profile at Time ' + str(title))
-                plt.show()
+        fig, ax = plt.subplots()   #initialize figure
+        ax.plot(2*np.pi/N*np.arange(N), sol[int(t)])
+        ax.set_xlabel('Position x')
+        ax.set_ylabel('Amplitude')
+        ax.set_title('Wave Profile at Time Step ' + str(t))
+        plt.show()
 
         return 
 
-    def plot_video(sol, T, N, title, fps=20):
+    def plot_video(sol, T, N, L, title, fps=20):
         '''construct a video of moving wave profile
         Input:
             sol     (array)    the solution array of the wave equation
             T       (int)      the number of time steps
             N       (int)      the number of spatial steps
+            L       (float)    the length of the periodical domain
             fps     (int)      time instance of the wave profile
             title   (string)   video file title; default = None* see BUG
             
@@ -326,7 +363,7 @@ class visual:
         for i in tqdm(range(T)):      #loop through every frame
             if i%5 == 0:        #sample every 5 frames
                 fig, ax = plt.subplots()   #initialize figure
-                ax.plot(2*np.pi/N*np.arange(N), sol[i])
+                ax.plot(L/N*np.arange(N), sol[i])
                 ax.set_xlabel('Position x')
                 ax.set_ylabel('Amplitude')
                 ax.set_ylim(1.1*minAmp, 1.1*maxAmp)
