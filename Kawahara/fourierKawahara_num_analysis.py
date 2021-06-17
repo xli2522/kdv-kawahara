@@ -24,8 +24,8 @@ def main():
     #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
     #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
 
-    mus = [5.09]        #test individual cases - large mu
-    lambs = [62.82]        #test individual cases - large lambda
+    mus = [1.49]        #test individual cases - large mu
+    lambs = [-29.71]        #test individual cases - large lambda
     #mus = [0.632]      #test individual cases - small mu
     #lambs = [0.227]        #test indivvidual cases - small lambda
 
@@ -43,14 +43,15 @@ def main():
             L = L
         else:
             L = 10*np.pi
+        
         N = int(np.floor(30*L/(2*np.pi)))     #number of spatial steps; fit to the length of the periodic domain
         dx = L / (N - 1.0)      #spatial step size
         x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
         print('Periodic Domain (u0&u1): ' + str(L))
         print('Spatial steps: ' + str(N))
         # Set the time sample grid.
-        T = 10
-        t = np.linspace(0, T, 2000)
+        T = 40
+        t = np.linspace(0, T, 8000)
         dt = len(t)
         ######################################################################
 
@@ -70,21 +71,21 @@ def main():
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
         # SAVE THE FULL SOLUTION
-        with open('forced_blowup2pi_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
+        with open('Table_test_'+str(int(L/np.pi))+'pi_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
             for row in sol:
                 f.write(str(row))
-        if 1.2*max(sol[0]) < max(sol[-1]):
+        '''if 1.8*max(sol[0]) < max(sol[-1]):
             print('Instability Possible')
-        elif 1.2*min(sol[0]) > min(sol[-1]):
+        elif 1.8*min(sol[0]) > min(sol[-1]):
             print('Instability Possible')
         else:
-            print('Expected to be Stable')
+            print('Expected to be Stable')'''
 
-        std[i] = numAnalysis.amplitude(sol, len(t), title='forced_blowup__2pi_'+str(i)+'.png')
-        visual.plot_video(sol, len(t), N, L, 'forced_blowup__2pi_'+str(i)+ '.avi')
+        std[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_maxamp_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
+        #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(i)+ '.avi')
         #visual.plot_profile(sol, np.rint(3*dt/4), N)
-        visual.plot_all(sol, L, T)
-
+        #visual.plot_all(sol, L, T)
+    print(std[i])
     #numAnalysis.simple_plot(std)    
     '''
     #############     TEST FULL SOLUTION U    #############
@@ -266,7 +267,7 @@ class waveEquation:
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
                 b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
 
-        u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
+        u = np.real(u0+delta*np.exp(lamb*t)*u1)        # take the real part of the solution
         #print('value of u1 '+str(u))
 
         return u
@@ -348,8 +349,8 @@ class visual:
             T       (int)      the number of time steps
             N       (int)      the number of spatial steps
             L       (float)    the length of the periodical domain
-            fps     (int)      time instance of the wave profile
             title   (string)   video file title; default = None* see BUG
+            fps     (int)      time instance of the wave profile
             
         Output:
             plot of the wave profile at time t      (plt)
@@ -361,10 +362,10 @@ class visual:
         maxAmp = max(sol[0])
         minAmp = min(sol[0])
         for i in tqdm(range(T)):      #loop through every frame
-            if i%5 == 0:        #sample every 5 frames
+            if i%2 == 0:        #sample every 2 frames
                 fig, ax = plt.subplots()   #initialize figure
-                ax.plot(L/N*np.arange(N), sol[i])
-                ax.set_xlabel('Position x')
+                ax.plot(L/N/np.pi*np.arange(N), sol[i])
+                ax.set_xlabel('Position x (*pi)')
                 ax.set_ylabel('Amplitude')
                 ax.set_ylim(1.1*minAmp, 1.1*maxAmp)
                 ax.set_title('Wave Profile at Time ' + str())
@@ -377,29 +378,31 @@ class visual:
 
 class numAnalysis:
     '''numerical stability analysis'''
-    def amplitude(sol, T, title=None, mid=None):
+    def amplitude(sol, T, title=None, mid=None, ratio=1):
         '''the numerical analysis of the max wave amplitude over time
         Input: 
             sol     (array)     the solution array
             T       (int)       the number of time steps
             title   (string)    default = None
+            ratio   (double)    ascpect ratio of the x-y axis
         Output:
             ampStd  (float)     standard deviation
             plot of change in amplitude of the wave     (plt)'''
         amp = np.zeros(len(sol))
 
         for i in range(len(sol)):
-            value = abs(max(sol[i])-min(sol[i]))
+            value = abs(max(sol[i]))    #-min(sol[i]))
             amp[i] = value
 
         ampStd = np.std(amp)
         fig, ax = plt.subplots()
         ax.scatter(range(T), amp, s=40)
-        ax.set_xlim(0, T)
-        ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
+        #ax.set_xlim(0, T)
+        #ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
         ax.set_xlabel('Time Step     STD: '+str(ampStd))
-        ax.set_ylabel('Amplitude Difference')
-        ax.set_title('Amplitude Difference vs. Time Step')
+        ax.set_ylabel('Max Amplitude')
+        ax.set_title('Max Amplitude vs. Time Step')
+        fig.set_size_inches(18,4)
 
         if title == None:
             plt.show()
