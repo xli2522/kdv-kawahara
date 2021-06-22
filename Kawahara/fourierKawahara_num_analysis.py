@@ -24,8 +24,8 @@ def main():
     #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
     #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
 
-    mus = [1.49]        #test individual cases - large mu
-    lambs = [-29.71]        #test individual cases - large lambda
+    mus = [0.74]        #test individual cases - large mu
+    lambs = [-64.87]        #test individual cases - large lambda
     #mus = [0.632]      #test individual cases - small mu
     #lambs = [0.227]        #test indivvidual cases - small lambda
 
@@ -50,14 +50,14 @@ def main():
         print('Periodic Domain (u0&u1): ' + str(L))
         print('Spatial steps: ' + str(N))
         # Set the time sample grid.
-        T = 40
-        t = np.linspace(0, T, 8000)
+        T = 1
+        t = np.linspace(0, T, 800)
         dt = len(t)
         ######################################################################
 
         param1 = [1, 3/160, 1, 0.01, lambs[i]]      # [alpha, beta, sigma, epsilon, lamb]
         param2 = [0.01, lambs[i], mus[i], 1, 3/160, 1]                # [delta, lamb, mu, alpha, beta, sigma]
-        a1 = 0.1*param1[3]      #DECREASE A1 WHEN BETA IS LARGE
+        a1 = 0.0001*param1[3]      #DECREASE A1 WHEN BETA IS LARGE
         ic_start = time.time()
         leading_terms_u0 = waveEquation.u0_leading_terms(param1, a1)
         stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
@@ -71,18 +71,12 @@ def main():
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
         # SAVE THE FULL SOLUTION
-        with open('Table_test_'+str(int(L/np.pi))+'pi_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
+        with open('Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
             for row in sol:
                 f.write(str(row))
-        '''if 1.8*max(sol[0]) < max(sol[-1]):
-            print('Instability Possible')
-        elif 1.8*min(sol[0]) > min(sol[-1]):
-            print('Instability Possible')
-        else:
-            print('Expected to be Stable')'''
 
-        std[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_maxamp_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
-        #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(i)+ '.avi')
+        std[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
+        visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
         #visual.plot_profile(sol, np.rint(3*dt/4), N)
         #visual.plot_all(sol, L, T)
     print(std[i])
@@ -211,7 +205,7 @@ class waveEquation:
 
         matrixS = 1j*matrixD*1j*matrixT
         '''
-        b1 = b2 = b3 = b4 = b5 = b6 = b7 = 0.01         #approximate leading bs
+        b1 = b2 = b3 = b4 = b5 = b6 = b7 = 0.00001         #approximate leading bs
         leading_terms = b1, b2, b3, b4, b5, b6, b7
 
         return leading_terms
@@ -267,7 +261,7 @@ class waveEquation:
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
                 b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
 
-        u = np.real(u0+delta*np.exp(lamb*t)*u1)        # take the real part of the solution
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)        # take the real part of the solution
         #print('value of u1 '+str(u))
 
         return u
@@ -362,17 +356,22 @@ class visual:
         maxAmp = max(sol[0])
         minAmp = min(sol[0])
         for i in tqdm(range(T)):      #loop through every frame
-            if i%2 == 0:        #sample every 2 frames
+            #if i%2 == 0:        #sample every 2 frames
+            if T <= 4000:
                 fig, ax = plt.subplots()   #initialize figure
                 ax.plot(L/N/np.pi*np.arange(N), sol[i])
                 ax.set_xlabel('Position x (*pi)')
                 ax.set_ylabel('Amplitude')
-                ax.set_ylim(1.1*minAmp, 1.1*maxAmp)
-                ax.set_title('Wave Profile at Time ' + str())
+                ax.set_ylim(1.3*minAmp, 1.1*maxAmp)
+                ax.set_title('Wave Profile at Time Step: ' + str(i))
                 images = imv.memory.savebuff(plt, images)       #save image to the temp container
                 plt.close()
+            else:
+                print('Total number of frames - ' + str(T))
+                batch = int(np.ceil(T/4000))
+                print('Devided in ' + str(batch) + 'batches.')
 
-        imv.memory.construct(images, str(title), fps)        #construct the video 
+        imv.memory.construct(images, str(title), fps, inspect=False)        #construct the video 
 
         return
 
@@ -402,7 +401,7 @@ class numAnalysis:
         ax.set_xlabel('Time Step     STD: '+str(ampStd))
         ax.set_ylabel('Max Amplitude')
         ax.set_title('Max Amplitude vs. Time Step')
-        fig.set_size_inches(18,4)
+        #fig.set_size_inches(18,4)
 
         if title == None:
             plt.show()
