@@ -31,22 +31,28 @@ def test():
     #############     Floquet Parameter mu    #############
     #############                             #############
     #param1 = [1, 0.25, 1]      # [alpha, beta, sigma]
-    #analytical.optimize_u0Coeff(param1, 10**(-6), 10**(-2), N = 21, steps=1500,plot=False)
-    #analytical.lambdaFloquet(0.62, 0.64, 200, param1, savePic=False)
+    #lamb = analytical.lambdaFloquet(0.62, 0.64, 200, param1, savePic=False)
     #############                             #############
     #############     Floquet Parameter mu    #############
-
+    
 
     #############     Numerical Instability   #############
     #############                             #############
-    mus = [0.74, 4.79]      #test individual cases - small mu
-    lambs = [-64.87, 62.35]        #test indivvidual cases - small lambda
+    #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
+    #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+    #mus = [0.74, 4.79]             
+    #lambs = [-64.87, 62.35]    
+    #mus = [5.09]             
+    #lambs = [62.82]          
+    mus = [0.7845, 0.6324, -0.7928]
+    lambs = [-0.1798, 0.2277, 0.2128]  
+    beta = 0.25
 
-    std = np.zeros(len(mus))       
+    avg = np.zeros(len(mus))       
     main_start = time.time()
 
     for i in tqdm(range(len(mus))):
-
+        print('\n')                                           #prevent tqdm from consuming the first printed character in terminal
         #####################################################################
         # Set the size of the domain, and create the discretized grid.
         #L = 2*np.pi/(abs(mus[i])-np.floor(abs(mus[i])))      #length of periodic boundary
@@ -61,27 +67,43 @@ def test():
         dx = L / (N - 1.0)      #spatial step size
         x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
         # Set the time sample grid.
-        T = 2
-        t = np.linspace(0, T, 1000)
+        T = 1
+        t = np.linspace(0, T, 800)
         dt = len(t)
         ######################################################################
-        param1 = [1, 3/160, 1, 0.01, lambs[i]]      # [alpha, beta, sigma, epsilon, lamb]
-        param2 = [0.01, lambs[i], mus[i], 1, 3/160, 1]                # [delta, lamb, mu, alpha, beta, sigma]
-        a1 = 0.1*param1[3]      #DECREASE A1 WHEN BETA IS LARGE
+        param1 = [1, beta, 1, 0.01, lambs[i]]                          # [alpha, beta, sigma, epsilon, lamb]
+        param2 = [0.01, lambs[i], mus[i], 1, beta, 1]                  # [delta, lamb, mu, alpha, beta, sigma]
+        a1 = 0.1*param1[3]                                             #DECREASE A1 WHEN BETA IS LARGE
  
-        kModes=10
+        kModes=10                           #number of fourier modes to consider
         ic_start = time.time()
+        
+        ###########################     U0  aN    ###########################
+        #approximate the optimized u0 coeficients for analytical approximation of perturbation solution u1
+        optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff([1,beta,1], a1, a1, steps=1, L=L, spaceResolution=N, plot=False, N=2*kModes+1)
+    
+        ###########################     U0  wE    ###########################
+        #calculate the leading Fourier coefficients of the stationary solution u0 class waveEquation method
+        #u0_leading_coeff = waveEquation.u0_leading_coeff(param1, a1, v0)
+        
+        #calculate the stationary solution u0 itself using u0_leading_coeff
+        #stationary_u0 = waveEquation.kawahara_stationary_solution(x, u0_leading_coeff, L, param1)
+        
+        ###########################     U1  aN    ###########################
+        #calculate the leading terms of the perturbation solution u1
+        lambdaCalc, U1 = analytical.fourierCoeffMatrix([1,beta,1], optimized_u0, v0, mus[i])
+        
+        #calculate the perturbation solution u1
+        perturbation_u1 = analytical.collect_u1(lambdaCalc, U1, mus[i], x)
+        
+        ###########################     Uc  wE    ###########################
+        #calculate the combined solution u
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0, u1=perturbation_u1)
 
-        #approximate the optimized u0 coeficients
-        leading_terms_u0, _ = analytical.optimize_u0Coeff([1,3/160,1], a1, a1, steps=1, plot=False, N=2*kModes+1)
-
-        stationary_u0 = waveEquation.kawahara_stationary_solution(x, leading_terms_u0, L, param1)
-        leading_terms_u1 = waveEquation.u1_leading_terms(param2, stationary_u0)     #temp remove param2 to skip matrix calculation
-        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, leading_terms_u1, param2, 0.01)
-
+        ###########################     Solve     ###########################
         print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
         solver_start = time.time()
-        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, False))           #modelArg temporarily not avaliable
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, False, v0))
         print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
@@ -90,10 +112,12 @@ def test():
             for row in sol:
                 f.write(str(row))
 
-        std[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
-        #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
+        avg[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
+        visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
+        
         #visual.plot_profile(sol, np.rint(3*dt/4), N)
         #visual.plot_all(sol, L, T, 'Table_test_Full_Profile_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.png')
+    numAnalysis.simple_plot(avg)
         #############                             #############
         #############     Numerical Instability   #############
 
@@ -102,7 +126,7 @@ def test():
 class waveEquation:
     '''Numerical wave equation stability related functions'''
 
-    def kawahara_model(u, t,  L, param, follow_wave_profile=False, damping=False):
+    def kawahara_model(u, t,  L, param, follow_wave_profile=True, damping=False, v0=None):
         '''The Kawahara model
         Input:
                 u                       (float)             wave amplitude
@@ -122,7 +146,8 @@ class waveEquation:
         '''
         
         alpha, beta, sigma, _, __,= param
-        v0 = alpha - beta
+        if v0 == None:                              #use approximated v0 if analytical v0 is not provided
+            v0 = alpha - beta
         if damping:                                 #avoid uxx calculation if no damping
             gamma = 0.1                             #damping coefficient - 0.043 boundary (beta)
             uxx = psdiff(u, period=L, order=2)      #2nd order differential
@@ -146,15 +171,18 @@ class waveEquation:
 
         return dudt
 
-    def u0_leading_terms(param, a1):
+    def u0_leading_coeff(param, a1, v0=None):
         '''Approximate the first 4 leading terms of the stationary/stable solution u0
         Input:
                 param                       (list)              list of parameters [alpha, beta, sigma, epsilon, lamb]
                 a1                          (float)             the initial value/guess of a1
+                v0                          (float)             the wave speed
         Output:
                 leading_terms               (list)              list of 4 leading terms in equation (24)
                                                                     [a1, a0, a2, a3, a4]
         Details: 
+                Not Used                    Not used due to low accuracy (theoretically; minimal difference in practice 
+                                                compared to class analytical func collect_u0)
                 u0 stable solution          equation (24) 
                 reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
                                                 OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
@@ -162,7 +190,8 @@ class waveEquation:
                                                         21 Jun 2018
          '''
         alpha, beta, sigma, _, __, = param
-        v0 = alpha - beta
+        if v0 == None:                                                     #use approximated v0 if analytical v0 is not provided
+            v0 = alpha - beta
 
         a0 = -(sigma/2)*(1/v0)*a1**2                                       #equation (28)
         if float(beta) == 0.2:                                             #approximate a2 in case of 0 division
@@ -176,7 +205,7 @@ class waveEquation:
 
         return leading_terms
 
-    def fourierCoeffMatrix(param, leadingu0):
+    def fourierCoeffMatrix(param, leadingu0, v0=None):
         '''Calculate the Fourier coefficient eigenvector for the perturbation/unstable solution u1
         Input:
                 param                       (list)              list of parameters [alpha, beta, sigma, epsilon, lamb]
@@ -185,6 +214,7 @@ class waveEquation:
                 lambdaCalc                  (array)             the eigenvalue of matrix S - equation (35)
                 U1                          (array)             the eigenvector of matrix S - equation (35)
         Details: 
+                Not Used                    Not used due to low accuracy (due to low kModes limited by class waveEquation func u0_leading_terms)
                 u1 perturbation solution    equation (9) 
                 reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
                                                 OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
@@ -192,7 +222,8 @@ class waveEquation:
                                                         21 Jun 2018
         '''
         _, __, mu, alpha, beta, sigma = param
-        V = alpha - beta
+        if v0 == None:                  #use approximated v0 if analytical v0 is not provided
+            V = alpha - beta
 
         #MATRIX OPERATION
         kModes = 4                      #numerical approximation of kModes is limited to 4 
@@ -223,6 +254,8 @@ class waveEquation:
                 leading_terms               (list)              list of leading terms in equation (9)
                                                                             [b1, b2, b3, b4]
         Details: 
+                Not Used                    Not used due to low accuracy (due to low kModes limited by class waveEquation func u0_leading_terms)
+                about param=None            param=None triggers all bn = 0.00001; use with a1 = 0.000001 and class waveEquation funcs to explore interesting wave profiles
                 u1 perturbation solution    equation (9) 
                 reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
                                                 OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
@@ -267,22 +300,24 @@ class waveEquation:
         '''
         a1, a0, a2, a3, a4 = leading_terms[:5]          #select the first 5 leading terms
 
-        #u0 = a0 + a1*np.cos(2*np.pi/L*x) + a2*np.cos(2*np.pi/L*2*x) + a3*np.cos(2*np.pi/L*4*x) - equation (24)
-        u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(4*x)
+        u0 = a0 + a1*np.cos(2*np.pi/L*x) + a2*np.cos(2*np.pi/L*2*x) + a3*np.cos(2*np.pi/L*3*x)          #- equation (24)
+        #u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(3*x)
 
         return u0
 
-    def kawahara_combined_solution(u0, x, leading_terms_u1, param, t):
+    def kawahara_combined_solution(u0, x, param, t, leading_terms_u1=None, u1=None):
         '''The combined solution to the Kawahara --> u0 stationary + u1 perturbation
         Input:
                 u0                              (func)              kawahara_stable_solution ==> u0 in equation (5)
                 x                               (float)             position x
                 param                           (list)              parameters [delta, lamb, mu, alpha, beta, sigma]
-                leading_terms_u1                (list)              leading terms in equation (9)
-                t                               (float)             initial time
+                t                               (float)             time of the initial condition
+                leading_terms_u1                (list)              leading Fourier coefficients in equation (9)
+                u1                              (float)             calculated final u1 result
         Output:
                 u                               (float)             the combined aprroximated solution to the Kawahara
         Details: 
+                leading_terms_u1 & u1           use either, never both
                 u0 stationary solution          equation (24) 
                 u1 perturbation solution        equation (9)
                 u combined solution             
@@ -292,8 +327,7 @@ class waveEquation:
                                                             21 Jun 2018
         '''
         delta, lamb, mu, _, __, ___,= param
-        b1, b2, b3, b4 = leading_terms_u1
-
+        
         '''
         #include more terms in u1
         u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
@@ -301,10 +335,12 @@ class waveEquation:
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
                 b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
         '''
-        u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
-                b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
+        if leading_terms_u1 != None:
+            b1, b2, b3, b4 = leading_terms_u1
+            u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
+                    b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
 
-        u = np.real(u0 + delta*np.exp(lamb*t)*u1)               #take the real part of the solution
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                               #take the real part of the solution
 
         return u
 
@@ -320,7 +356,7 @@ class waveEquation:
 
         return u
 
-    def solve_kawahara(model, u0, t, L, param, steps, modelArg=None):
+    def solve_kawahara(model, u0, t, L, param, steps, modelArg):
         '''Solve the Kawahara with Scipy odeint
         Input:
             model                                               Kawahara model
@@ -333,7 +369,7 @@ class waveEquation:
         Output:
             sol                         (array)                 solutions
         '''
-        sol = odeint(model, u0, t, args=(L, param, modelArg[0], modelArg[1]), mxstep=steps)
+        sol = odeint(model, u0, t, args=(L, param, modelArg[0], modelArg[1], modelArg[2]), mxstep=steps)
         
         return sol
 
@@ -400,7 +436,7 @@ class visual:
         maxAmp = max(sol[0])
         minAmp = min(sol[0])
         for i in tqdm(range(T)):                #loop through every frame
-            if i%3 == 0:                        #sample every 3 frames
+            if i%2 == 0:                        #sample every 2 frames
                 if T <= 4000:
                     fig, ax = plt.subplots()    #initialize figure
                     ax.plot(L/N/np.pi*np.arange(N), sol[i])
@@ -438,12 +474,12 @@ class numAnalysis:
             value = abs(max(sol[i]))    
             amp[i] = value
 
-        ampStd = np.std(amp)
+        ampAvg = np.average(amp)
         fig, ax = plt.subplots()
         ax.scatter(range(T), amp, s=40)
         #ax.set_xlim(0, T)
         #ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
-        ax.set_xlabel('Time Step     STD: '+str(ampStd))
+        ax.set_xlabel('Time Step     average amp: '+str(ampAvg))
         ax.set_ylabel('Max Amplitude')
         ax.set_title('Max Amplitude vs. Time Step')
 
@@ -452,20 +488,20 @@ class numAnalysis:
         if savePic:
             plt.savefig(str(title))
 
-        return ampStd
+        return ampAvg
 
     def simple_plot(dat, id=None):
-        '''Simple plot for standard deviation
+        '''Simple plot for average max amplitude
         Input:
                 dat         (array_like)                data
                 id          (str)                       identification number/label
         '''
-        fig, ax = plt.subplots()   #initialize figure
+        fig, ax = plt.subplots()   
         ax.plot(np.arange(len(dat)), dat)
         ax.set_xlabel('Instance')
-        ax.set_ylabel('Standard Deviation')
-        ax.set_title('Standard Deviation vs. Instance')
-        plt.savefig('Std_'+str(time.time())+'_'+str(id)+'.png')
+        ax.set_ylabel('Average Max Amplitude')
+        ax.set_title('Average Max Amplitude vs. Instance')
+        plt.savefig('Avg_'+str(time.time())+'_'+str(id)+'.png')
         
         return
 
@@ -490,8 +526,8 @@ class operation:
 class analytical:
     '''Analytical stability analysis'''
 
-    def collect_u0Coeff(U, param, a1, N=10):
-        '''Approximate the N leading terms of the stationary/stable solution u0
+    def collect_u0(U, param, a1, N=10):
+        '''Approximate the leading Fourier coefficients of the stationary/stable solution u0
         Input:
                 U                   (array)             array of guessed leading terms
                 param               (list)              parameters [alpha, beta, sigma]
@@ -511,13 +547,13 @@ class analytical:
         leading_terms = np.zeros(N+2)
         alpha, beta, sigma = param
         v0 = U[0]
-        a = U[1::]
+        a = U[1::]     
         
         for k in range(N+1):
             sum1=0.
             sum2=0.
             for n in range(k,N+1):
-                sum1=sum1+a[n]*a[n-k]       #summing the a terms in the stationary solution
+                sum1=sum1+a[n]*a[n-k]                           #summing the a terms in the stationary solution
             for n in range(0,k):
                 sum2=sum2+a[n]*a[k-n] 
             leading_terms[k]=((v0*a[k] + 1./2.*sigma*sum1 + 1./2.*sigma*sum2 - alpha*k**2*a[k] + beta*k**4*a[k]))
@@ -527,19 +563,20 @@ class analytical:
 
         return leading_terms
     
-    def optimize_u0Coeff(param, a1, an, N=10, steps=1000, L=2*np.pi, plot=True, savePic=False):
-        '''Calculates the leading terms in equation (24) - the stationary term u0
+    def optimize_u0Coeff(param, a1, an, N=10, steps=1000, spaceResolution=501, L=2*np.pi, plot=True, savePic=False):
+        '''Optimize the leading Fourier coefficients of the stationary solution u0 - equation (24)
         Input:
                 param               (list)              parameters [alpha, beta, sigma]
                 a1                  (double)            the initial guess of a1
                 an                  (double)            the final guess of a1
                 N                   (int)               the number of leading terms to consider
                 steps               (int)               the number of steps to take to approach the optimal result
+                spaceResolution     (int)               the number of spatial steps
                 L                   (float)             the length of the domain
                 plot                (boolean)           
                 savePic             (boolean)
         Output:
-                sol                 (array)             array of optimized leading terms in equation (24)
+                sol                 (array)             array of optimized leading coefficients in equation (24) with v0 at position 0
                 v0                  (float)             wave speed
         Details: 
         u0 stable solution          equation (24) 
@@ -553,41 +590,46 @@ class analytical:
         
         alpha, beta, sigma = param
         guessed = np.zeros(N+2)
+        bifurcationV = np.zeros(steps)
         guessed[0] = alpha - beta
         guessed[1] = a1
         a = np.linspace(a1, an, steps)
-        domain = np.linspace(0,L,501)
+        domain = np.linspace(0,L,spaceResolution)
         for k in range(steps):
 
-            leading_terms = fsolve(analytical.collect_u0Coeff, guessed, args=(param, a[k], N), xtol=1.e-8)
+            leading_terms = fsolve(analytical.collect_u0, guessed, args=(param, a[k], N), xtol=1.e-8)
             sol = leading_terms[1::]
             v0 = leading_terms[0]
-            guessed = np.concatenate((v0,leading_terms[1],a[k],leading_terms[3::]),axis=None)
+            guessed = np.concatenate((v0,leading_terms[1],a[k],leading_terms[3::]),axis=None)           #update guessed coefficients
             
-            phi = sol[-1]*np.cos(0.*domain)
+            
+            phi = sol[-1]*np.cos(0.*domain)                        #approximated stationary solution value u0 on the periodic domain
             phix = -0.*sol[0]*np.sin(0.*domain)
             ii = 0.
             for aii in sol[1:]:
                 ii+=1
                 phi+=aii*np.cos(ii*domain)
                 phix+=(-ii*aii*np.sin(ii*domain))
-            
+                
+            bifurcationV[k] = v0
             phi+=-sol[0]
             v0+=(-2.*sol[0])
 
         if plot or savePic:
             plt.plot(domain, phi)
-        if plot:
-            plt.show()
         if savePic:
             plt.savefig('optimize_u0_coeff_'+str(time.time())+'_a1'+str(max(a[k]))+'.png')
-
-        return sol, v0
+            plt.close()
+        if plot:
+            plt.show()
+            plt.clf()
+        
+        return sol, v0, phi                  #added u1 solution 
 
     def fourierCoeffMatrix(param, leadingu0, V, mu, kModes=10):
         '''Calculate the Fourier coefficient eigenvector for the perturbation/unstable solution u1
         Input:
-                param                       (list)              list of parameters [alpha, beta, sigma, epsilon, lamb]
+                param                       (list)              list of parameters [alpha, beta, sigma]
                 leadingu0                   (list)              leading terms of the stable solution u0 - equation (24)
                 V                           (float)             wave speed
                 mu                          (float)             Floquet parameter mu
@@ -605,7 +647,7 @@ class analytical:
                                     lightly modified to fit this program
         '''
         alpha, beta, sigma = param
-        
+       
         #MATRIX OPERATION
         #Matrix D
         matrixD = np.zeros((2*kModes+1, 2*kModes+1), 'complex')
@@ -626,7 +668,7 @@ class analytical:
         
         return lambdaCalc, U1
 
-    def lambdaFloquet(minMu, maxMu, steps, param, kmode=10, plot=True, title=None, savePic=False, inspect=True):
+    def lambdaFloquet(minMu, maxMu, steps, param, kmode=10, L=2*np.pi, plot=True, title=None, savePic=False, inspect=True):
         '''Calculates the Lambda vs. mu in search for the lambda with the largest real part - impies stability
         Input:
                 minMu               (float)             the initial mu
@@ -634,10 +676,13 @@ class analytical:
                 steps               (int)               the number of steps to reach maxMu
                 param               (list)              parameters [alpha, beta, sigma]
                 kMode               (int)               the number of leading terms to consider
+                L                   (float)             periodic domain length
                 plot                (boolean)           plot
                 title               (str)               title
                 savePic             (boolean)           save picture
                 inspect             (boolean)           display
+        Output:
+                maxLambda           (array)             the array of maximum lambdas
         Details: 
         u0 stable solution          equation (24) 
         reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
@@ -651,10 +696,10 @@ class analytical:
         maxLambda = np.zeros((steps,1))
         a1 =10**(-6)     #a1 = epsilon
         an = 10**(-2)
-        leading_terms_u0, V = analytical.optimize_u0Coeff(param, a1, an, plot=False, N=2*kmode+1)
+        leading_terms_u0, v0, _ = analytical.optimize_u0Coeff(param, a1, an, plot=False, N=2*kmode+1, L=L)
         for i in range(steps):
-            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param, leading_terms_u0, V, mus[i])
-            maxLambda[i] = np.max(lambdaCalc.real)
+            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param, leading_terms_u0, v0, mus[i])
+            maxLambda[i] = np.max(lambdaCalc.real)              #then use equation 9 to get u1
 
         if plot or savePic:
             fig, ax = plt.subplots()   #initialize figure
@@ -667,7 +712,40 @@ class analytical:
             if inspect:
                 plt.show()
 
-        return
+        return maxLambda
+    
+    def collect_u1(lambdaCalc, U1, mu, x):
+        '''Calculate the perturbation solution u1 - equation (9)
+        Input:
+                lambdaCalc              (array)             the array of lambdas
+                U1                      (array)             the array of eigenvectors
+                mu                      (float)             the value of the Floquet parameter mu
+                x                       (array)             the spatial domain
+        Output:
+                combined                (float)             the perturbation solution u1
+        Details: 
+        u1 perturbation solution    equation (9) 
+        reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
+                                        OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
+                                            arXiv:1806.08445v1
+                                                21 Jun 2018
+        '''
+        #find the max lambda position
+        lambdaCalcMax = max(np.real(lambdaCalc))
+        indVec = np.argwhere(np.real(lambdaCalc)==lambdaCalcMax)
+        U1 = np.real(U1[:,indVec].transpose())
+        sumPostive = 0
+        sumNegative = 0
+        for i in range(len(lambdaCalc)):
+            sumPostive += U1[0][0][i]*np.exp(1j*(mu+i)*x)                                #equivalent to equation (9)
+            sumNegative += U1[0][0][i]*np.exp(1j*(mu-i)*x)                               #equivalent to equation (9)
+
+        #equation (9) break down
+        #u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
+                #b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
+        combined = sumPostive+sumNegative
+
+        return combined
 
 if __name__ == "__main__":
     test()
