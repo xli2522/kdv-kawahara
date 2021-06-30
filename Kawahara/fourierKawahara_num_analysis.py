@@ -724,11 +724,11 @@ class analytical:
         Output:
                 combined                (float)             the perturbation solution u1
         Details: 
-        u1 perturbation solution    equation (9) 
-        reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
-                                        OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
-                                            arXiv:1806.08445v1
-                                                21 Jun 2018
+        u1 perturbation solution        equation (9) 
+        reference                       STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
+                                            OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
+                                                arXiv:1806.08445v1
+                                                    21 Jun 2018
         '''
         #find the max lambda position
         lambdaCalcMax = max(np.real(lambdaCalc))
