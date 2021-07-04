@@ -6,6 +6,7 @@ from numpy.lib.function_base import average
 from scipy.integrate import odeint
 from scipy.fftpack import diff as psdiff
 from scipy.optimize import fsolve
+import pandas as pd         #data logging
 import matplotlib.pyplot as plt
 import imvideo as imv       #dependent on opencv; use pip install opencv-python: note: it uses namespace cv2
 import time
@@ -38,15 +39,16 @@ def test():
 
     #############     Numerical Instability   #############
     #############                             #############
-    #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
-    #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+    mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
+    lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
     #mus = [0.74, 4.79]             
-    #lambs = [-64.87, 62.35]    
+    #lambs = [-64.87, 35.98]    
     #mus = [5.09]             
-    #lambs = [62.82]          
-    mus = [0.7845, 0.6324, -0.7928]
-    lambs = [-0.1798, 0.2277, 0.2128]  
-    beta = 0.25
+    #lambs = [62.82]   
+    beta = 3/160       
+    #mus = [0.7845, 0.6324, -0.7928]
+    #lambs = [-0.1798, 0.2277, 0.2128]  
+    
 
     avg = np.zeros(len(mus))       
     main_start = time.time()
@@ -67,12 +69,12 @@ def test():
         dx = L / (N - 1.0)      #spatial step size
         x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
         # Set the time sample grid.
-        T = 1
-        t = np.linspace(0, T, 800)
+        T = 8
+        t = np.linspace(0, T, 2000)
         dt = len(t)
         ######################################################################
         param1 = [1, beta, 1, 0.01, lambs[i]]                          # [alpha, beta, sigma, epsilon, lamb]
-        param2 = [0.01, lambs[i], mus[i], 1, beta, 1]                  # [delta, lamb, mu, alpha, beta, sigma]
+        param2 = [0.0005, lambs[i], mus[i], 1, beta, 1]                  # [delta, lamb, mu, alpha, beta, sigma]
         a1 = 0.1*param1[3]                                             #DECREASE A1 WHEN BETA IS LARGE
  
         kModes=10                           #number of fourier modes to consider
@@ -113,11 +115,11 @@ def test():
                 f.write(str(row))
 
         avg[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
-        visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
+        #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
         
         #visual.plot_profile(sol, np.rint(3*dt/4), N)
         #visual.plot_all(sol, L, T, 'Table_test_Full_Profile_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.png')
-    numAnalysis.simple_plot(avg)
+    #numAnalysis.simple_plot(avg)
         #############                             #############
         #############     Numerical Instability   #############
 
@@ -320,7 +322,7 @@ class waveEquation:
                 leading_terms_u1 & u1           use either, never both
                 u0 stationary solution          equation (24) 
                 u1 perturbation solution        equation (9)
-                u combined solution             
+                u combined solution             equation (5)
                 reference                       STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
                                                     OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
                                                         arXiv:1806.08445v1
@@ -340,7 +342,7 @@ class waveEquation:
             u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
                     b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
 
-        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                               #take the real part of the solution
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                               #equation (5)
 
         return u
 
