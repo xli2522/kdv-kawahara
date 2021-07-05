@@ -39,10 +39,10 @@ def test():
 
     #############     Numerical Instability   #############
     #############                             #############
-    mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
-    lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
-    #mus = [0.74, 4.79]             
-    #lambs = [-64.87, 35.98]    
+    #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
+    #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+    mus = [0.74, 4.79]             
+    lambs = [-64.87, 35.98]    
     #mus = [5.09]             
     #lambs = [62.82]   
     beta = 3/160       
@@ -105,7 +105,7 @@ def test():
         ###########################     Solve     ###########################
         print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
         solver_start = time.time()
-        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, False, v0))
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, True, v0))
         print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
@@ -147,11 +147,11 @@ class waveEquation:
                                                     21 Jun 2018
         '''
         
-        alpha, beta, sigma, _, __,= param
+        alpha, beta, sigma, epsilon, __,= param
         if v0 == None:                              #use approximated v0 if analytical v0 is not provided
             v0 = alpha - beta
         if damping:                                 #avoid uxx calculation if no damping
-            gamma = 0.1                             #damping coefficient - 0.043 boundary (beta)
+            gamma = 0.1*epsilon                     #damping coefficient - 0.043 boundary (previous version) - current gamma = a1
             uxx = psdiff(u, period=L, order=2)      #2nd order differential
 
         #compute the spectral derivatives of u
