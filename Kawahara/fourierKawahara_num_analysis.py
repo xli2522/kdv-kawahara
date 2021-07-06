@@ -13,8 +13,9 @@ import time
 from tqdm import tqdm       #progress bar
 
 ###  $$$    NOTE    $$$    ###
-# (1) u0 and u1 leading term selection order needs to be verified
-# (2) add damping coefficient to function
+# (1) u0 and u1 leading term selection order needs to be verified ^
+# (2) add damping coefficient to function ^
+# (3) add a1 free parameter determination function
 
 ###  $$$    BUG    $$$    ###
 # (1) setting title=None and then define title to a string 
@@ -31,33 +32,32 @@ def test():
     '''
     #############     Floquet Parameter mu    #############
     #############                             #############
-    #param_damping = [1, 0.25, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
-    #param_no_damping = [1, 0.25, 1]
-    #lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_damping, savePic=True, damping=True)
-    #lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_no_damping, savePic=True, damping=False)
+    param_damping = [1, 0.25, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
+    param_no_damping = [1, 0.25, 1]
+    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_damping, savePic=True, damping=True)
+    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_no_damping, savePic=True, damping=False, inspect=True)
     #############                             #############
     #############     Floquet Parameter mu    #############
     
 
-    #############     Numerical Instability   #############
+    '''#############     Numerical Instability   #############
     #############                             #############
     #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
     #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
-    mus = [0.74, 4.79]             
-    lambs = [-64.87, 35.98]  
+    #mus = [0.74, 4.79]             
+    #lambs = [-64.87, 35.98]  
     #mus = [5.09]             
     #lambs = [62.82]   
-    beta = 3/160
-    #beta = 1/4    
-    #mus = [0.7845, 0.6324, -0.7928]
-    #lambs = [-0.1798, 0.2277, 0.2128]  
+    #beta = 3/160
+    beta = 1/4    
+    mus = [0.7845, 0.6324, -0.7928]
+    lambs = [-0.1798, 0.2277, 0.2128]  
     damp_all_cases = False
 
     avg = np.zeros(len(mus))       
     main_start = time.time()
 
     for i in tqdm(range(len(mus))):
-        print('\n')                                           #prevent tqdm from consuming the first printed character in terminal
 
         #####################################################################
         # Set the size of the domain, and create the discretized grid.
@@ -91,7 +91,7 @@ def test():
         else:
             lamb = lambs[i]
             mu = mus[i]
-
+        continue
         ######################################################################
         param1 = [1, beta, 1, 0.001, lamb]                              # [alpha, beta, sigma, epsilon, lamb]
         param2 = [0.0005, lamb, mu, 1, beta, 1]                         # [delta, lamb, mu, alpha, beta, sigma]
@@ -124,6 +124,7 @@ def test():
         combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0, u1=perturbation_u1)
 
         ###########################     Solve     ###########################
+        print('\n')                                           #prevent tqdm from consuming the first printed character in terminal
         print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
         solver_start = time.time()
         sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, False, v0))
@@ -702,7 +703,7 @@ class analytical:
                     if damping:
                         matrixD[m, n] = (ns + mu)*V - (ns + mu)**3*alpha + (ns + mu)**5*beta - (ns + mu)**2*gamma   #modified equation (37) with damping
                     else:
-                        matrixD[m, n] = (ns + mu)*V - (ns + mu)**3*alpha + (ns + mu)**5*beta            #equivalent to equation (37)   
+                        matrixD[m, n] = (ns + mu)*V - (ns + mu)**3*alpha + (ns + mu)**5*beta        #equivalent to equation (37)   
                 else:
                     matrixT[m, n] = 2*sigma*(mu+ms)*leadingu0[abs(ns-ms)]                           #equivalent to equation (38)
 
@@ -739,27 +740,40 @@ class analytical:
                 the guessed amplitude a1 should also be counted in the calculation       
         '''
         mus = np.linspace(minMu, maxMu, steps)     
-        maxLambda = np.zeros((steps,1))
+        maxLambdaRe = np.zeros((steps,1))
+        maxLambdaIm = np.zeros((steps,1))
+        minLambdaIm = np.zeros((steps,1))
         a1 =10**(-2)     #a1 = epsilon
         an = 10**(-2)    #aq == an; step = 1 for optimize
 
         leading_terms_u0, v0, _ = analytical.optimize_u0Coeff(param, a1, an, steps=1, plot=False, N=2*kmode+1, L=L, damping=damping)
         for i in range(steps):
             lambdaCalc, U1 = analytical.fourierCoeffMatrix(param, leading_terms_u0, v0, mus[i], damping=damping)
-            maxLambda[i] = np.max(lambdaCalc.real)              #then use equation 9 to get u1
+            #maxLambdaIm[i] = np.max(lambdaCalc.imag)
+            #maxLambdaRe[i] = np.max(lambdaCalc.real)              #then use equation 9 to get u1
+            #minLambdaIm[i] = np.min(maxLambdaIm.imag)
+            current_lamb = np.sort(lambdaCalc)[-1]
+            index = np.abs(lambdaCalc.imag).argmin()
+            minLambdaIm[i] = np.abs(lambdaCalc[index].imag)        #get Im{lambda} near 0; show any turning point
+            maxLambdaRe[i] = current_lamb.real                   
 
+            
         if plot or savePic:
-            fig, ax = plt.subplots()   #initialize figure
-            ax.scatter(mus, maxLambda)
-            ax.set_xlabel('Floquet Parameter mu')
-            ax.set_ylabel('Max Re Lambda Value')
-            ax.set_title('Max Lambda Value vs. Floquet Parameter')
+            fig, axs = plt.subplots(2)                             #initialize figure
+            axs[0].scatter(mus, maxLambdaRe)
+            #axs[1].scatter(mus, maxLambdaIm)
+            axs[1].scatter(mus, minLambdaIm)
+            axs[0].scatter(mus[int(len(mus)//2)], 0)
+            axs[1].set_xlabel('Floquet Parameter mu')
+            axs[0].set_ylabel('Re Lambda Value')
+            axs[1].set_ylabel('Im Lambda Value')
+            axs[0].set_title('Lambda Value vs. Floquet Parameter')
             if savePic:
-                plt.savefig('lambdaFloquet_'+str(time.time())+'mu_'+ str(mus[int(steps/2)])+'_lambda'+str(max(maxLambda))+'damping'+str(damping)+'.png')
+                plt.savefig('lambdaFloquet_'+str(time.time())+'mu_'+ str(mus[int(steps/2)])+'damping'+str(damping)+'.png')
             if inspect:
                 plt.show()
 
-        return maxLambda
+        return maxLambdaRe, maxLambdaIm
     
     def find_stable_lamb(param, mu, steps, savePic=False, plot=False):
         '''Find the nearest stable Re{lambda} corresponding to the input mu value
