@@ -15,7 +15,7 @@ from tqdm import tqdm       #progress bar
 ###  $$$    NOTE    $$$    ###
 # (1) u0 and u1 leading term selection order needs to be verified ^
 # (2) add damping coefficient to function ^
-# (3) add a1 free parameter determination function
+# (3) add a1 free parameter determination function ^
 
 ###  $$$    BUG    $$$    ###
 # (1) setting title=None and then define title to a string 
@@ -30,35 +30,45 @@ def test():
             Test 2: Kawahaa Numerical Solver (stable condition)
             Test 3: Kawahara Numerical Solver (unstable condition)
     '''
-    #############     Floquet Parameter mu    #############
+    '''#############     Floquet Parameter mu    #############
     #############                             #############
     param_damping = [1, 0.25, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
     param_no_damping = [1, 0.25, 1]
-    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_damping, savePic=True, damping=True)
-    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, param_no_damping, savePic=True, damping=False, inspect=True)
+    guessa1 = analytical.optimize_Floquet_a1(param_no_damping, 10**(-3), 10**(-1), 0.635, 10, savePic=False, plot=True)
+    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, guessa1, param_no_damping, 0.635, savePic=False, damping=False, inspect=True)
+    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, 10**(-2), param_no_damping, 0.635, savePic=False, damping=False, inspect=True)
+    lamb = analytical.lambdaFloquet(0.62, 0.66, 400, guessa1, param_damping, 0.635, savePic=False, damping=True, inspect=True)
     #############                             #############
-    #############     Floquet Parameter mu    #############
-    
+    #############     Floquet Parameter mu    #############'''
 
-    '''#############     Numerical Instability   #############
+    param_damping = [1, 3/160, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
+    param_no_damping = [1, 3/160, 1]
+    mu = 0.74
+    guessa1 = analytical.optimize_Floquet_a1(param_no_damping, 10**(-6), 10, mu, 80, savePic=False, plot=True)
+    lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, guessa1, param_no_damping, 0.74, savePic=False, damping=False, inspect=True)
+    lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, 10**(-2), param_no_damping, 0.74, savePic=False, damping=False, inspect=True)
+    lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, guessa1, param_damping, 0.74, savePic=False, damping=True, inspect=True)
+    
+    #############     Numerical Instability   #############
     #############                             #############
     #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
     #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
     #mus = [0.74, 4.79]             
     #lambs = [-64.87, 35.98]  
-    #mus = [5.09]             
-    #lambs = [62.82]   
-    #beta = 3/160
-    beta = 1/4    
-    mus = [0.7845, 0.6324, -0.7928]
-    lambs = [-0.1798, 0.2277, 0.2128]  
-    damp_all_cases = False
+    beta = 3/160
+    #beta = 1/4    
+    #mus = [0.7845, 0.6324, -0.7928]
+    #lambs = [-0.1798, 0.2277, 0.2128] 
+    mus=[0.77]
+    lambs=[0.025] 
+    a1=0.25
+    damp_all_cases = True
 
     avg = np.zeros(len(mus))       
     main_start = time.time()
 
     for i in tqdm(range(len(mus))):
-
+        print('\n')                                           #prevent tqdm from consuming the first printed character in terminal
         #####################################################################
         # Set the size of the domain, and create the discretized grid.
         #L = 2*np.pi/(abs(mus[i])-np.floor(abs(mus[i])))      #length of periodic boundary
@@ -81,40 +91,51 @@ def test():
         param_damping = [1, beta, 1, 0.01]
         param_no_damping = [1, beta, 1]
         #calculate Re{lambda} values in the Floquet-Re{lambda} space
-        lamb_original = analytical.lambdaFloquet(0.97*mus[i], 1.03*mus[i], 800,
+        lamb_original = analytical.lambdaFloquet(0.97*mus[i], 1.03*mus[i], 800, a1,
                                         param_no_damping, savePic=True, plot=False, damping=False)        
         if damp_all_cases:
             #this is incorrect atm; find_stable_lamb outputs the Re{lambda} instead of the Im{lambda}
-            lamb = analytical.find_stable_lamb(param_damping, mus[i], 800, savePic=True, plot=False)
+            lamb, gamma = analytical.find_stable_lamb(param_damping, a1, mus[i], 800, savePic=True, plot=False)
+            param_damping = [1, beta, 1, gamma]
+            '''if lambs[i] > lamb:
+                lamb = lambs[i]
+            else:
+                lamb = lamb'''
+        
             mu = mus[i]
 
         else:
             lamb = lambs[i]
             mu = mus[i]
-        continue
+        #continue
         ######################################################################
-        param1 = [1, beta, 1, 0.001, lamb]                              # [alpha, beta, sigma, epsilon, lamb]
-        param2 = [0.0005, lamb, mu, 1, beta, 1]                         # [delta, lamb, mu, alpha, beta, sigma]
-        a1 = 0.001   #param1[3]                                          #DECREASE A1 WHEN BETA IS LARGE
+        param1 = [1, beta, 1, 0.001, lamb]                              #[alpha, beta, sigma, epsilon, lamb]
+        param2 = [0.0005, lamb, mu, 1, beta, 1]                         #[delta, lamb, mu, alpha, beta, sigma]
+        #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
  
-        kModes=10                           #number of fourier modes to consider
+        kModes=10                                                       #number of fourier modes to consider
         ic_start = time.time()
         
         ###########################     U0  aN    ###########################
         #approximate the optimized u0 coeficients for analytical approximation of perturbation solution u1
-        optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff(param_no_damping, a1, a1, 
+        if damp_all_cases:
+            optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff(param_damping, a1, a1, 
+                            steps=1, L=L, spaceResolution=N, plot=False, N=2*kModes+1, damping=damp_all_cases)
+            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_damping, optimized_u0, v0, mu, damping=damp_all_cases)
+        else:
+            optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff(param_no_damping, a1, a1, 
                             steps=1, L=L, spaceResolution=N, plot=False, N=2*kModes+1, damping=damp_all_cases)
     
-        ###########################     U0  wE    ###########################
-        #calculate the leading Fourier coefficients of the stationary solution u0 class waveEquation method
-        #u0_leading_coeff = waveEquation.u0_leading_coeff(param1, a1, v0)
-        
-        #calculate the stationary solution u0 itself using u0_leading_coeff
-        #stationary_u0 = waveEquation.kawahara_stationary_solution(x, u0_leading_coeff, L, param1)
-        
-        ###########################     U1  aN    ###########################
-        #calculate the leading terms of the perturbation solution u1
-        lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_no_damping, optimized_u0, v0, mu, damping=damp_all_cases)
+            ###########################     U0  wE    ###########################
+            #calculate the leading Fourier coefficients of the stationary solution u0 class waveEquation method
+            #u0_leading_coeff = waveEquation.u0_leading_coeff(param1, a1, v0)
+            
+            #calculate the stationary solution u0 itself using u0_leading_coeff
+            #stationary_u0 = waveEquation.kawahara_stationary_solution(x, u0_leading_coeff, L, param1)
+            
+            ###########################     U1  aN    ###########################
+            #calculate the leading terms of the perturbation solution u1
+            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_no_damping, optimized_u0, v0, mu, damping=damp_all_cases)
         
         #calculate the perturbation solution u1
         perturbation_u1 = analytical.collect_u1(lambdaCalc, U1, mus[i], x)
@@ -124,10 +145,9 @@ def test():
         combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0, u1=perturbation_u1)
 
         ###########################     Solve     ###########################
-        print('\n')                                           #prevent tqdm from consuming the first printed character in terminal
         print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
         solver_start = time.time()
-        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, False, v0))
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, damp_all_cases, v0))
         print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
@@ -150,7 +170,7 @@ def test():
 class waveEquation:
     '''Numerical wave equation stability related functions'''
 
-    def kawahara_model(u, t,  L, param, follow_wave_profile=True, damping=False, v0=None):
+    def kawahara_model(u, t,  L, param, follow_wave_profile=True, damping=False, gamma=None, v0=None):
         '''The Kawahara model
         Input:
                 u                       (float)             wave amplitude
@@ -168,12 +188,12 @@ class waveEquation:
                                                 arXiv:1806.08445v1
                                                     21 Jun 2018
         '''
-        
         alpha, beta, sigma, epsilon, __,= param
         if v0 == None:                              #use approximated v0 if analytical v0 is not provided
             v0 = alpha - beta
         if damping:                                 #avoid uxx calculation if no damping
-            gamma = 0.1*epsilon                     #damping coefficient - 0.043 boundary (previous version) - current gamma = a1
+            if gamma == None:
+                gamma = u                           #damping coefficient - 0.043 boundary (previous version) - gamma = u = a1 if no optimized gamma input
             uxx = psdiff(u, period=L, order=2)      #2nd order differential
 
         #compute the spectral derivatives of u
@@ -325,7 +345,6 @@ class waveEquation:
         a1, a0, a2, a3, a4 = leading_terms[:5]          #select the first 5 leading terms
 
         u0 = a0 + a1*np.cos(2*np.pi/L*x) + a2*np.cos(2*np.pi/L*2*x) + a3*np.cos(2*np.pi/L*3*x)          #- equation (24)
-        #u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(3*x)
 
         return u0
 
@@ -364,7 +383,7 @@ class waveEquation:
             u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
                     b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
 
-        u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                               #equation (5)
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                               #equation (5)
 
         return u
 
@@ -432,7 +451,6 @@ class visual:
                 title               (string)                title
                 inspect             (boolean)               display
         '''
-
         fig, ax = plt.subplots()   #initialize figure
         ax.plot(2*np.pi/N*np.arange(N), sol[int(t)])
         ax.set_xlabel('Position x')
@@ -612,6 +630,7 @@ class analytical:
         Output:
                 sol                 (array)             array of optimized leading coefficients in equation (24) with v0 at position 0
                 v0                  (float)             wave speed
+                phi                 (array)             array of the u1 solution
         Details: 
         u0 stable solution          equation (24) 
         reference                   STABILITY OF PERIODIC TRAVELLING WAVE SOLUTIONS TO THE KAWAHARA EQUATION
@@ -633,12 +652,10 @@ class analytical:
         a = np.linspace(a1, an, steps)
         domain = np.linspace(0,L,spaceResolution)
         for k in range(steps):
-
             leading_terms = fsolve(analytical.collect_u0, guessed, args=(param, a[k], N, damping), xtol=1.e-8)
             sol = leading_terms[1::]
             v0 = leading_terms[0]
             guessed = np.concatenate((v0,leading_terms[1],a[k],leading_terms[3::]),axis=None)           #update guessed coefficients
-            
             
             phi = sol[-1]*np.cos(0.*domain)                        #approximated stationary solution value u0 on the periodic domain
             phix = -0.*sol[0]*np.sin(0.*domain)
@@ -661,7 +678,7 @@ class analytical:
             plt.show()
             plt.clf()
         
-        return sol, v0, phi                  #added u1 solution 
+        return sol, v0, phi                  
 
     def fourierCoeffMatrix(param, leadingu0, V, mu, kModes=10, damping=False):
         '''Calculate the Fourier coefficient eigenvector for the perturbation/unstable solution u1
@@ -712,13 +729,15 @@ class analytical:
         
         return lambdaCalc, U1
 
-    def lambdaFloquet(minMu, maxMu, steps, param, kmode=10, L=2*np.pi, damping=False, plot=True, title=None, savePic=False, inspect=False):
+    def lambdaFloquet(minMu, maxMu, steps, a1, param, mu=None, kmode=10, L=2*np.pi, damping=False, plot=True, title=None, savePic=False, inspect=False):
         '''Calculates the Lambda vs. mu in search for the lambda with the largest real part - impies stability
         Input:
                 minMu               (float)             the initial mu
                 maxMu               (float)             the final mu
                 steps               (int)               the number of steps to reach maxMu
+                a1                  (float)             the value of free parameter a1 of the small amplitude wave
                 param               (list)              parameters [alpha, beta, sigma] + gamma if damping is enabled
+                mu                  (float)             the Floquet parameter value of interest
                 kMode               (int)               the number of leading terms to consider
                 L                   (float)             periodic domain length
                 damping             (boolean)           enable damping
@@ -739,12 +758,13 @@ class analytical:
         Note:
                 the guessed amplitude a1 should also be counted in the calculation       
         '''
+        steps = int(steps)
         mus = np.linspace(minMu, maxMu, steps)     
         maxLambdaRe = np.zeros((steps,1))
         maxLambdaIm = np.zeros((steps,1))
         minLambdaIm = np.zeros((steps,1))
-        a1 =10**(-2)     #a1 = epsilon
-        an = 10**(-2)    #aq == an; step = 1 for optimize
+
+        an = a1   #aq == an; step = 1 for optimize
 
         leading_terms_u0, v0, _ = analytical.optimize_u0Coeff(param, a1, an, steps=1, plot=False, N=2*kmode+1, L=L, damping=damping)
         for i in range(steps):
@@ -754,20 +774,25 @@ class analytical:
             #minLambdaIm[i] = np.min(maxLambdaIm.imag)
             current_lamb = np.sort(lambdaCalc)[-1]
             index = np.abs(lambdaCalc.imag).argmin()
-            minLambdaIm[i] = np.abs(lambdaCalc[index].imag)        #get Im{lambda} near 0; show any turning point
+            minLambdaIm[i] = (lambdaCalc[index].imag)              #get Im{lambda} near 0; show any turning point
             maxLambdaRe[i] = current_lamb.real                   
-
             
         if plot or savePic:
             fig, axs = plt.subplots(2)                             #initialize figure
             axs[0].scatter(mus, maxLambdaRe)
             #axs[1].scatter(mus, maxLambdaIm)
             axs[1].scatter(mus, minLambdaIm)
-            axs[0].scatter(mus[int(len(mus)//2)], 0)
+            if mu == None:
+                axs[0].scatter(mus[int(len(mus)//2)], 0)
+            else:
+                axs[0].scatter(mu, 0)
             axs[1].set_xlabel('Floquet Parameter mu')
             axs[0].set_ylabel('Re Lambda Value')
             axs[1].set_ylabel('Im Lambda Value')
-            axs[0].set_title('Lambda Value vs. Floquet Parameter')
+            if damping:
+                axs[0].set_title('Lambda Value vs. Floquet Parameter (damped; a1='+str(a1)+')')
+            else:
+                axs[0].set_title('Lambda Value vs. Floquet Parameter (undamped; a1='+str(a1)+')')
             if savePic:
                 plt.savefig('lambdaFloquet_'+str(time.time())+'mu_'+ str(mus[int(steps/2)])+'damping'+str(damping)+'.png')
             if inspect:
@@ -775,35 +800,68 @@ class analytical:
 
         return maxLambdaRe, maxLambdaIm
     
-    def find_stable_lamb(param, mu, steps, savePic=False, plot=False):
+    def find_stable_lamb(param, a1, mu, steps, savePic=False, plot=False):
         '''Find the nearest stable Re{lambda} corresponding to the input mu value
         Imput:
                 param               (list)                parameters [alpha, beta, sigma] + gamma if damping is enabled
+                a1                  (float)               the value of free parameter a1 of the small amplitude wave
                 mu                  (float)               the Floquet parameter
                 steps               (int)                 the number of Floquet parameters within the range to be tested
                 savePic             (boolean)
                 plot                (boolean)
         Output:
                 lambda_damped       (float)               the nearest stable Re{lambda} corresponding to the input mu value
+                param[3]            (float)               the optimized damping parameter gamma
+        Details:
+        damped Re{lambda} value     the damped Re{lambda} value for a stable Floquet parameter is expected to be smaller than 10**(-8)        
         Note:
                 the guessed amplitude a1 should also be counted in the calculation       
         '''
-        lamb_damped = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, 
+        lamb_dampedRe, lamb_dampedIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, a1, 
                                         param, savePic=False, plot=False, damping=True)
         maxSearch = 0
-        while lamb_damped[int(steps/2)] > 10**(-8):
+        while lamb_dampedRe[int(steps/2)] > 10**(-8):
             param[3] = param[3]*2
-            lamb_damped = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, 
+            lamb_dampedRe, lamb_dampedIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, a1,
                                     param, savePic=False, plot=False, damping=True)
             maxSearch+=1
             if maxSearch == 50:
                 print('Unable to find the damped lambda in 50 searches...')
                 break
         print('The damping parameter gamma is: '+str(param[3]))
-        lamb_damped = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, 
+        lamb_dampedRe, lamb_dampedIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, a1,
                                     param, savePic=savePic, plot=plot, damping=True)
 
-        return lamb_damped[int(steps/2)]
+        return lamb_dampedRe[int(steps/2)], param[3]
+
+    def optimize_Floquet_a1(param, guess_a1, guess_an, mu, steps, threshold=10**(-8), savePic=False, plot=False):
+        '''Find the optimized a1 value for a Floquet parameter mu such that the wave is prone to instability
+        Input:
+                param               (list)                parameters [alpha, beta, sigma] + gamma if damping is enabled
+                guess_a1            (float)               the starting value of free parameter a1 of the small amplitude wave 
+                guess_an            (float)               the final value of free parameter a1 of the small amplitude wave 
+                mu                  (float)               the Floquet parameter 
+                steps               (int)                 the number of a1 within the range to be tested
+                threshold           (float)               the max value of Re{lambda} to qualify potential instability
+                savePic             (boolean)
+                plot                (boolean)
+        Output:
+                a                   (float)               the optimized free parameter a1 value (if successful)
+            OR      as[int(steps//2)]   (float)               the median value of guessed a1 values (if unsuccessful)
+        Notes:
+                for a more detailed search, modify analytical.lambdaFloquet parameters
+        '''
+        a_s = np.linspace(guess_a1, guess_an, steps)
+        for a in a_s:
+            lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a,
+                                    param, savePic=False, plot=False, damping=False)
+            if np.max(lamb_no_dampRe) >= threshold:
+                lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a,
+                                    param, savePic=savePic, inspect=plot, damping=False)
+                return a
+        print('Not able to find optimized a1 for instability in the given range...')
+
+        return a_s[int(steps//2)]
     
     def collect_u1(lambdaCalc, U1, mu, x):
         '''Calculate the perturbation solution u1 - equation (9)
