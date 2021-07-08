@@ -1,6 +1,7 @@
 # Kawahara Numerical Stability Analysis - X. Li 2021, Western University
 # Import libraries
 
+import warnings
 import numpy as np
 from numpy.core.fromnumeric import size
 from numpy.lib.function_base import average
@@ -23,46 +24,41 @@ from tqdm import tqdm       #progress bar
 #      causes imvideo --> cv2 --> unable to obtain image spec error
 
 def test():
-    '''Full numerical Kawahara solution test function
-    Tentative:
+    '''Full numerical Kawahara solution test function;
+        Test function will NOT auto-run if this file is properly imported.
+    Test all functionalities:
         Group 1: Analytical Instability
-            Test 1: Floquet Parameter Test
+            Overall 1: Floquet Parameter Test 1
+            Overall 2: Floquet Parameter Test 2
         Group 2: Numerical Instability
-            Test 2: Kawahaa Numerical Solver (stable condition)
-            Test 3: Kawahara Numerical Solver (unstable condition)
+            Overall 2: Kawahaa Numerical Solver Test 1 (unstable condition)
+            Overall 3: Kawahara Numerical Solver Test 2 (stable condition)
     '''
-    '''#############     Floquet Parameter mu    #############
-    #############                             #############
+
+    #############     Floquet Parameter Test 1    #############
+    #############                                 #############
     param_damping = [1, 0.25, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
     param_no_damping = [1, 0.25, 1]
     guessa1 = analytical.optimize_Floquet_a1(param_no_damping, 10**(-3), 10**(-1), 0.635, 10, savePic=False, plot=True)
     lamb = analytical.lambdaFloquet(0.62, 0.66, 400, guessa1, param_no_damping, 0.635, savePic=False, damping=False, inspect=True)
     lamb = analytical.lambdaFloquet(0.62, 0.66, 400, 10**(-2), param_no_damping, 0.635, savePic=False, damping=False, inspect=True)
     lamb = analytical.lambdaFloquet(0.62, 0.66, 400, guessa1, param_damping, 0.635, savePic=False, damping=True, inspect=True)
-    #############                             #############
-    #############     Floquet Parameter mu    #############'''
-
-    '''param_damping = [1, 3/160, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
+    #############                                 #############
+    #############     Floquet Parameter Test 2    #############
+    param_damping = [1, 3/160, 1, 0.01]      # [alpha, beta, sigma, gamma]     include gamma for damping
     param_no_damping = [1, 3/160, 1]
     mu = 0.74
     guessa1 = analytical.optimize_Floquet_a1(param_no_damping, 10**(-6), 10, mu, 80, savePic=False, plot=True)
     lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, guessa1, param_no_damping, 0.74, savePic=False, damping=False, inspect=True)
     lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, 10**(-2), param_no_damping, 0.74, savePic=False, damping=False, inspect=True)
-    lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, guessa1, param_damping, 0.74, savePic=False, damping=True, inspect=True)'''
-    
-    #############     Numerical Instability   #############
-    #############                             #############
-    #mus = [5.09,5.48,4.79,5.02,4.16,4.23,3.24,-3.23,2.27,2.36,1.49,1.64,0.74,0.69]
-    #lambs = [62.82,51.62,35.98,19.78,7.09,0.595,-0.219,-0.305,-3.22,-13.41,-29.71,-49.13,-64.87,-57.60]
+    lamb = analytical.lambdaFloquet(0.97*mu, 1.03*mu,  400, guessa1, param_damping, 0.74, savePic=False, damping=True, inspect=True)
+    #############                                 #############
+    #############   Numerical Instability Test 1  #############
     mus = [0.74, 4.79]             
     lambs = [-64.87, 35.98]  
     beta = 3/160
-    #beta = 1/4    
-    #mus = [0.7845, 0.6324, -0.7928]
-    #lambs = [-0.1798, 0.2277, 0.2128] 
-    #mus=[5.02]
-    #lambs=[19.78] 
-    a1=0.000001
+  
+    a1=0.001
     damp_all_cases = False
 
     avg = np.zeros(len(mus))       
@@ -102,13 +98,12 @@ def test():
                 lamb = lambs[i]
             else:
                 lamb = lamb'''
-        
             mu = mus[i]
 
         else:
             lamb = lambs[i]
             mu = mus[i]
-        #continue
+
         ######################################################################
         param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
         param2 = [0.01, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
@@ -129,48 +124,52 @@ def test():
            
             ###########################     U0  wE    ###########################
             #calculate the leading Fourier coefficients of the stationary solution u0 class waveEquation method
+
+            #NOTE: interferes with analytical u0 and u1 solutions; Use with caution
             
-            u0_leading_coeff = waveEquation.u0_leading_coeff(param1, a1)
+            #u0_leading_coeff = waveEquation.u0_leading_coeff(param1, a1)
             #print(u0_leading_coeff)
-            u0_scaled = waveEquation.u0_leading_coeff(param1, 0.1)
+            #u0_scaled = waveEquation.u0_leading_coeff(param1, 0.1)
             #print(u0_scaled)
             #calculate the stationary solution u0 itself using u0_leading_coeff
-            stationary_u0 = waveEquation.kawahara_stationary_solution(x, u0_leading_coeff, L, param1)
+            #stationary_u0 = waveEquation.kawahara_stationary_solution(x, u0_leading_coeff, L, param1)
 
             ###########################     U1  aN    ###########################
             #calculate the leading terms of the perturbation solution u1
             lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_no_damping, optimized_u0, v0, mu, kModes=kModes, damping=damp_all_cases)
         
         #calculate the perturbation solution u1
-        perturbation_u1, LEADU1 = analytical.collect_u1(lambdaCalc, U1, mu, x)
-        leading_u1.append(LEADU1)
-        
+        perturbation_u1 = analytical.collect_u1(lambdaCalc, lamb, U1, mu, x)
         ###########################     Uc  wE    ###########################
         #calculate the combined solution u
-        leading_terms_u1=waveEquation.u1_leading_terms()
-        
-        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0.1, leading_terms_u1=leading_terms_u1)#  ,    u1=perturbation_u1
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0.01, a1, u1=perturbation_u1)           
+        # , leading_terms_u1=waveEquation.u1_leading_terms()
+        plt.plot(combined_u)
+        plt.xlabel('Position')
+        plt.ylabel('Amplitude')
+        plt.title('Initial Wave Profile mu: '+str(mu)+' a1: '+str(a1))
+        plt.savefig('TEST_initialProfile_'+str(i)+'_mu'+str(mu)+'.png')
         
         ###########################     Solve     ###########################
         print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
         solver_start = time.time()
-        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 5000, modelArg=(True, damp_all_cases, v0))
+        sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 2500, modelArg=(True, damp_all_cases, v0))
         print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         
         # SAVE THE FULL SOLUTION
-        with open('Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
+        with open('TEST_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+'_'+str(T)+'time'+str(len(t))+'steps'+'.txt', "w") as f:
             for row in sol:
                 f.write(str(row))
 
-        avg[i] = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
-        visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
+        avg[i] = numAnalysis.amplitude(sol, len(t), title='TEST_'+str(a1)+'maxamp_'+str(mus[i])+'_'+str(int(L/np.pi))+'pi_'+str(i)+'.png')
+        visual.plot_video(sol, len(t), N, L, 'TEST_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.avi', fps=30)
         
         #visual.plot_profile(sol, np.rint(3*dt/4), N)
         #visual.plot_all(sol, L, T, 'Table_test_Full_Profile_'+str(int(L/np.pi))+'pi_'+str(mus[i])+'mu_'+str(i)+ '.png')
     #numAnalysis.simple_plot(avg)
         #############                             #############
-        #############     Numerical Instability   #############'''
+        #############     Numerical Instability   #############
     
     return
 
@@ -351,17 +350,18 @@ class waveEquation:
         '''
         a0, a1, a2, a3, a4 = leading_terms[:5]          #select the first 5 leading terms
 
-        #u0 = a0 + a1*np.cos(2*np.pi*x) + a2*np.cos(2*np.pi*2*x) + a3*np.cos(2*np.pi*3*x)          #- equation (24)
-        u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(4*x)          #- equation (24)
+        #u0 = a0 + a1*np.cos(2*np.pi*x) + a2*np.cos(2*np.pi*2*x) + a3*np.cos(2*np.pi*3*x)           #- equation (24)
+        u0 = a0 + a1*np.cos(x) + a2*np.cos(2*x) + a3*np.cos(3*x)                                    #- equation (24)
         return u0
 
-    def kawahara_combined_solution(u0, x, param, t, leading_terms_u1=None, u1=None):
+    def kawahara_combined_solution(u0, x, param, t, a1, leading_terms_u1=None, u1=None):
         '''The combined solution to the Kawahara --> u0 stationary + u1 perturbation
         Input:
                 u0                              (func)              kawahara_stable_solution ==> u0 in equation (5)
                 x                               (float)             position x
                 param                           (list)              parameters [delta, lamb, mu, alpha, beta, sigma]
                 t                               (float)             time of the initial condition
+                a1                              (float)             the a1 free parameter
                 leading_terms_u1                (list)              leading Fourier coefficients in equation (9)
                 u1                              (float)             calculated final u1 result
         Output:
@@ -375,16 +375,11 @@ class waveEquation:
                                                     OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
                                                         arXiv:1806.08445v1
                                                             21 Jun 2018
+        Note:
+                the a1 free parameter is used to scale the solution of u1; it is suspected to be a bug in the u1 solution manipulation
         '''
         delta, lamb, mu, _, __, ___,= param
         
-        '''
-        #include more terms in u1
-        u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
-                b5*np.exp(1j*(mu-5)*x) + b6*np.exp(1j*(mu-6)*x) + b7*np.exp(1j*(mu-7)*x) + \
-                b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
-                b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
-        '''
         if leading_terms_u1 != None:
             b1, b2, b3, b4 = leading_terms_u1
             b5=b6=b7=0.00001
@@ -394,9 +389,10 @@ class waveEquation:
                 b5*np.exp(1j*(mu-5)*x) + b6*np.exp(1j*(mu-6)*x) + b7*np.exp(1j*(mu-7)*x) + \
                 b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) + \
                 b5*np.exp(1j*(mu+5)*x) + b6*np.exp(1j*(mu+6)*x) + b7*np.exp(1j*(mu+7)*x) 
-        u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                               #equation (5)
-        #plt.plot(u1.real)
-        #plt.show()
+            warnings.warn('Using approximated u1...')
+        if u1.any() != None:
+            u1 = u1
+        u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                         #equation (5) - a1/0.000001* scaling
         
         return u
 
@@ -841,7 +837,7 @@ class analytical:
                                     param, savePic=False, plot=False, damping=True)
             maxSearch+=1
             if maxSearch == 50:
-                print('Unable to find the damped lambda in 50 searches...')
+                warnings.warn('Unable to find the damped lambda in 50 searches...')
                 break
         print('The damping parameter gamma is: '+str(param[3]))
         lamb_dampedRe, lamb_dampedIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, steps, a1,
@@ -874,14 +870,15 @@ class analytical:
                 lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a,
                                     param, savePic=savePic, inspect=plot, damping=False)
                 return a
-        print('Not able to find optimized a1 for instability in the given range...')
+        warnings.warn('Not able to find optimized a1 for instability in the given range...')
 
         return a_s[int(steps//2)]
     
-    def collect_u1(lambdaCalc, U1, mu, x):
+    def collect_u1(lambdaCalc, lamb, U1, mu, x):
         '''Calculate the perturbation solution u1 - equation (9)
         Input:
                 lambdaCalc              (array)             the array of lambdas
+                lamb                    (float)             the target lambda (float number input; can be .imag of a lambda)
                 U1                      (array)             the array of eigenvectors
                 mu                      (float)             the value of the Floquet parameter mu
                 x                       (array)             the spatial domain
@@ -893,26 +890,27 @@ class analytical:
                                             OLGA TRICHTCHENKO, BERNARD DECONINCK, AND RICHARD KOLLAR
                                                 arXiv:1806.08445v1
                                                     21 Jun 2018
+        Note:
+                the input target lambda is expected to be the imaginary part of a complex lambda as a float number
+                this function will be investigated further: (1) lambda selection; (2) equation 9 reconstruction
         '''
         #find the max lambda position
-        lambdaCalcMax = max(np.real(lambdaCalc))
-        indVec = np.argwhere(np.real(lambdaCalc)==lambdaCalcMax)
-        U1 = np.real(U1[:,indVec].transpose())
-        U1 = U1[0][0]
-        U1[0] = 0
+        index = np.abs(lambdaCalc.imag - lamb).argmin()                 #get the position of Im{lambda} near the target lambda
+        U1 = np.real(U1[:,index].transpose())       
+        #print(lambdaCalc[index].imag)
         sumPostive = 0
         sumNegative = 0
+        #U1 = U1[:int(np.floor(len(lambdaCalc)-1)//2)]
         for i in range(len(lambdaCalc)):
-            sumPostive += U1[i]*np.exp(1j*(mu+i)*x)                                #equivalent to equation (9)
-            #sumNegative += U1[i]*np.exp(1j*(mu-i)*x)                               #equivalent to equation (9)
-        print('analytical u1 coeff: '+str(U1[0]))
-        #equation (9) break down
+            sumPostive += U1[i]*np.exp(1j*(mu+i)*x)                     #equivalent to equation (9)
+            sumNegative += U1[i]*np.exp(1j*(mu-i)*x)                    #equivalent to equation (9)
+        combined = sumPostive+sumNegative
+
+        #u1 break down  
         #u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
                 #b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 
-        combined = sumPostive+sumNegative
-        print(combined)
-        
-        return combined, max(np.abs(U1.real))
+
+        return combined
 
 if __name__ == "__main__":
     test()
