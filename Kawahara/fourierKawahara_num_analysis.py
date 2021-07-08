@@ -58,7 +58,7 @@ def test():
     lambs = [-64.87, 35.98]  
     beta = 3/160
   
-    a1=0.001
+    a1=0.1
     damp_all_cases = False
 
     avg = np.zeros(len(mus))       
