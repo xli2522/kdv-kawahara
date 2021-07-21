@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import imvideo as imv       #dependent on opencv; use pip install opencv-python: note: it uses namespace cv2
 import time
 from tqdm import tqdm       #progress bar
-
+from multiprocessing import Pool        
 ###  $$$    NOTE    $$$    ###
 # (1) u0 and u1 leading term selection order needs to be verified ^
 # (2) add damping coefficient to function ^
@@ -657,7 +657,7 @@ class analytical:
 
         return leading_terms
     
-    def optimize_u0Coeff(param, a1, an, N=10, steps=1, spaceResolution=501, L=2*np.pi, damping=False, plot=True, savePic=False):
+    def optimize_u0Coeff(param, a1, an, N=10, steps=1, spaceResolution=501, L=2*np.pi, damping=False, plot=False, savePic=False):
         '''Optimize the leading Fourier coefficients of the stationary solution u0 - equation (24)
         Input:
                 param               (list)              parameters [alpha, beta, sigma]  + gamma if damping is enabled
@@ -715,7 +715,7 @@ class analytical:
         if plot or savePic:
             plt.plot(domain, phi)
         if savePic:
-            plt.savefig('optimize_u0_coeff_'+str(time.time())+'_a1'+str(max(a[k]))+'.png')
+            plt.savefig('optimize_u0_coeff_'+str(time.time())+'_a1'+str(a[k])+'.png')
             plt.close()
         if plot:
             plt.show()
