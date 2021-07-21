@@ -14,7 +14,7 @@ def full_operation(pair):
     a1=0.001
     #a1 = 0.373
     damp_all_cases = False
-    optimize_stable = False
+    optimize_stable = True
     optimize_unstable = False
 
     main_start = time.time()
@@ -32,8 +32,8 @@ def full_operation(pair):
     dx = L / (N - 1.0)                      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
     # Set the time sample grid.
-    T = 2
-    t = np.linspace(0, T, 800)
+    T = 24
+    t = np.linspace(0, T, 4000)
     dt = len(t)
 
     ######################################################################
@@ -56,12 +56,14 @@ def full_operation(pair):
         mu = mu
     #continue
     
-    if optimize_stable or optimize_unstable:
-        if optimize_unstable:
-            a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.001, 1, mu, 1000, stable=False, savePic=True)
-        else:
-            a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.9, 1.1, mu, 500, stable=True, savePic=True)
-    
+    if optimize_unstable:
+        a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.001, 1, mu, 1000, stable=False, savePic=True)
+    elif optimize_stable:
+        a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.9, 1.1, mu, 500, stable=True, savePic=True)
+    else:
+        a1 = a1
+        lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1, param_no_damping, mu, savePic=True, damping=False)
+
     if a1 == None:
         pass
     #calculate Re{lambda} values in the Floquet-Re{lambda} space
@@ -70,7 +72,7 @@ def full_operation(pair):
     #continue
     ######################################################################
     param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
-    param2 = [0.027, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
+    param2 = [1, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
     #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
 
     kModes=10                                                       #number of fourier modes to consider
