@@ -14,7 +14,7 @@ def full_operation(pair):
     a1=0.001
     #a1 = 0.373
     damp_all_cases = False
-    optimize_stable = True
+    optimize_stable = False
     optimize_unstable = False
 
     main_start = time.time()
@@ -32,8 +32,8 @@ def full_operation(pair):
     dx = L / (N - 1.0)                      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
     # Set the time sample grid.
-    T = 24
-    t = np.linspace(0, T, 4000)
+    T = 8
+    t = np.linspace(0, T, 600)
     dt = len(t)
 
     ######################################################################
@@ -62,7 +62,7 @@ def full_operation(pair):
         a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.9, 1.1, mu, 500, stable=True, savePic=True)
     else:
         a1 = a1
-        lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1, param_no_damping, mu, savePic=True, damping=False)
+        #lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1, param_no_damping, mu, savePic=True, damping=damp_all_cases)
 
     if a1 == None:
         pass
@@ -72,7 +72,7 @@ def full_operation(pair):
     #continue
     ######################################################################
     param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
-    param2 = [1, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
+    param2 = [a1, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
     #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
 
     kModes=10                                                       #number of fourier modes to consider
@@ -99,15 +99,7 @@ def full_operation(pair):
     #calculate the combined solution u
     
     combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, 0.01, a1, u1=perturbation_u1)           
-    # , leading_terms_u1=waveEquation.u1_leading_terms()
-    visual.plotInitial(combined_u, mu, a1, 0)
-    
-    #fig, axs = plt.subplots(4)
-    #axs[0].plot(stationary_u0)
-    #axs[1].plot(perturbation_u1)
-    #axs[2].plot(combined_u)
-    #axs[3].plot(stationary_u0+perturbation_u1)
-    #plt.show()
+    #visual.plotInitial(combined_u, mu, a1, 0)
                  
     ###########################     Solve     ###########################
     print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
