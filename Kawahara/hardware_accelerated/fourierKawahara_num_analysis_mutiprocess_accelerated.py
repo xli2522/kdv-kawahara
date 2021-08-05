@@ -824,8 +824,12 @@ class analytical:
 
         if plot or savePic:
             fig, axs = plt.subplots(2)                             #initialize figure
-            axs[0].scatter(mus, maxLambdaRe)
-            axs[1].scatter(mus, maxLambdaIm)
+            if np.max(maxLambdaRe) >= 10**(-12):
+                axs[0].scatter(mus, maxLambdaRe, c='r' )
+                axs[1].scatter(mus, maxLambdaIm)
+            else:
+                axs[0].scatter(mus, maxLambdaRe)
+                axs[1].scatter(mus, maxLambdaIm)
             #axs[1].scatter(mus, minLambdaIm)
             if mu == None:
                 axs[0].scatter(mus[int(len(mus)//2)], 0)
@@ -945,12 +949,13 @@ class analytical:
         #print(lambdaCalc[index].imag)
         sumPostive = 0
         sumNegative = 0
+        eta = 0.00001                                                   #to offset the normalization of b
         #U1 = U1[:int(np.floor(len(lambdaCalc)-1)//2)]
         for i in range(len(lambdaCalc)):
-            sumPostive += U1[i]*np.exp(1j*(mu+i)*x)                     #equivalent to equation (9)
-            sumNegative += U1[i]*np.exp(1j*(mu-i)*x)                    #equivalent to equation (9)
+            sumPostive += eta*U1[i]*np.exp(1j*(mu+i)*x)                     #equivalent to equation (9)
+            sumNegative += eta*U1[i]*np.exp(1j*(mu-i)*x)                    #equivalent to equation (9)
         combined = sumPostive+sumNegative
-
+        
         #u1 break down  
         #u1 = b1*np.exp(1j*(mu-1)*x) + b2*np.exp(1j*(mu-2)*x) + b3*np.exp(1j*(mu-3)*x) + b4*np.exp(1j*(mu-4)*x) + \
                 #b1*np.exp(1j*(mu+1)*x) + b2*np.exp(1j*(mu+2)*x) + b3*np.exp(1j*(mu+3)*x) + b4*np.exp(1j*(mu+4)*x) 

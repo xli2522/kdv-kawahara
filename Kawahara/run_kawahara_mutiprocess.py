@@ -11,9 +11,9 @@ def full_operation(pair):
     mu = pair[0]
     lamb = pair[1]
     beta = 3/160
-    a1=0.001
+    a1=0.000001
     #a1 = 0.373
-    damp_all_cases = False
+    damp_all_cases = True
     damp_all_cases_analytical = False
     optimize_stable = False
     optimize_unstable = False
@@ -33,8 +33,8 @@ def full_operation(pair):
     dx = L / (N - 1.0)                      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
     # Set the time sample grid.
-    T = 24
-    t = np.linspace(0, T, 1500)
+    T = 2
+    t = np.linspace(0, T, 800)
     dt = len(t)
 
     ######################################################################
@@ -73,7 +73,7 @@ def full_operation(pair):
     #continue
     ######################################################################
     param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
-    param2 = [a1, lamb, mu, 1, beta, 1]                             #[delta, lamb, mu, alpha, beta, sigma]
+    param2 = [0.01, lamb, mu, 1, beta, 1]                             #[delta, lamb, mu, alpha, beta, sigma]
     #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
 
     kModes=10                                                       #number of fourier modes to consider
@@ -99,13 +99,15 @@ def full_operation(pair):
     ###########################     Uc  wE    ###########################
     #calculate the combined solution u
     
-    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, a1, a1, u1=perturbation_u1)           
-    #visual.plotInitial(combined_u, mu, a1, 0)
+    combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, a1, a1, u1=perturbation_u1)       
+
+    #plot the combined initial condition    
+    visual.plotInitial(combined_u, mu, a1, 0)               
                  
     ###########################     Solve     ###########################
     print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
     solver_start = time.time()
-    sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 3000, modelArg=(True, damp_all_cases, a1, v0))
+    sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
     print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
     
@@ -126,7 +128,7 @@ if __name__ == '__main__':
     pairs2 = [[5.09,62.82], [5.48,51.62], [4.79,35.98], [5.02,19.78], [4.16,7.09], [4.23,0.595], [3.24,-0.219], \
                     [-3.23,-0.305], [2.27,-3.22], [2.36,-13.41], [1.49,-29.71], [1.64,-49.13], [0.74,-64.87], [0.69, -57.60]]           #beta = 3/160
     
-    pool = Pool(processes=8)
+    pool = Pool(processes=14)
     pool.map(full_operation, pairs2)
     pool.terminate()
     print('Full operation completed in ---- ' + str(time.time() - current) + ' ----')
