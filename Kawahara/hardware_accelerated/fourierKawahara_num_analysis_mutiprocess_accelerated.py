@@ -399,8 +399,9 @@ class waveEquation:
             warnings.warn('Using approximated u1...')
         if u1.any() != None:
             u1 = u1
-        u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                         #equation (5) - a1/0.000001* scaling
-        
+        #u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                         #equation (5) - a1/0.000001* scaling
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                              #pure imaginary exp ==> cos ==> no exponential contribution
+
         return u
 
     def kdv_soliton_solution(x, c):
@@ -1084,16 +1085,17 @@ class analytical:
         #case 0 
         sol0 = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t0, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
         amps0 = numAnalysis.amplitude(sol0, len(t0), title='numError_amps0', savePic=False)
+  
         print("Numerical solver 0 --- %s seconds ---" % (time.time() - solver_start))
+        current = time.time()
         #case 1
         sol1 = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t1, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
         amps1 = numAnalysis.amplitude(sol1, len(t1), title='numError_amps1', savePic=False)
-        print("Numerical solver 1 --- %s seconds ---" % (time.time() - solver_start))
+        print("Numerical solver 1 --- %s seconds ---" % (time.time() - current))
         down_amps1 = amps1[0::int(n)]
         error = amps0 - down_amps1
         numAnalysis.simple_plot(error, xlabel='Time Steps', ylabel='Max Amplitude', id='_', title='amp0-amp1')
 
-        
         print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
         fig, ax = plt.subplots()
         ax.scatter(range(n0), amps0, s=40)
@@ -1104,6 +1106,104 @@ class analytical:
         ax.set_ylabel('Max Amplitude')
         ax.set_title('Max Amplitude vs. Time Step')
         plt.savefig('numError_amps0_amps1.png')
+
+        return
+
+    def dampingAnalysis(mu, lamb, beta, a1, n, T, param1=None, param2=None):
+        '''Compare the effects of damping terms
+        Input:
+                        mu              
+                        lambda
+                        beta
+                        a1
+                        n               the number of steps
+                        T               simulation length (time)
+                        param1
+                        param2
+        
+        '''
+        #damp_all_cases is enough to damp all cases but damp_all_cases_analytical in theory should be enabled as well
+        damp_all_cases = True                   #time dependent Kawahara
+        damp_all_cases_analytical = True        #analytical; Floquet matrix
+        optimize_stable = False
+        optimize_unstable = False
+
+        main_start = time.time()
+
+        #####################################################################
+        # Set the size of the domain, and create the discretized grid.
+        L = 240*np.pi
+        #force a larger periodic domain
+        if L >= 10*np.pi:
+            L = L
+        else:
+            L = 10*np.pi
+        
+        N = int(np.floor(30*L/(2*np.pi)))       #number of spatial steps; fit to the length of the periodic domain
+        dx = L / (N - 1.0)                      #spatial step size
+        x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
+
+        #####################################################################
+        #set the time sample grid
+        #T = 2
+        #case 0
+        t = np.linspace(0, T, n)
+        dt = len(t)
+
+        ######################################################################
+        param_damping = [1, beta, 1, a1]
+        param_no_damping = [1, beta, 1]
+        
+        if param1 == None or param2 == None:
+            param1 = [1, beta, 1, 0.01, lamb]                              #[alpha, beta, sigma, epsilon, lamb]
+            param2 = [0.01, lamb, mu, 1, beta, 1]                          #[delta, lamb, mu, alpha, beta, sigma]
+
+        kModes=10                                                       #number of fourier modes to consider
+        ################################## Dampings ##########################
+        #this is incorrect atm; find_stable_lamb outputs the Re{lambda} instead of the Im{lambda}
+        lamb, gamma = analytical.find_stable_lamb(param_damping, a1, mu, 800, savePic=True, plot=False)
+        param_damping = [1, beta, 1, gamma]
+
+        ######################################################################
+
+        ic_start = time.time()
+        
+        ###########################     U0  aN    ###########################
+        #approximate the optimized u0 coeficients for analytical approximation of perturbation solution u1
+        if damp_all_cases_analytical:
+            optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff(param_damping, a1, a1, 
+                            steps=1, L=L, spaceResolution=N, plot=False, N=2*kModes+1, savePic=False, damping=damp_all_cases_analytical)
+            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_damping, optimized_u0, v0, mu, damping=damp_all_cases_analytical)
+        else:
+            optimized_u0, v0, stationary_u0 = analytical.optimize_u0Coeff(param_no_damping, a1, a1, 
+                            steps=1, L=L, spaceResolution=N, plot=False, N=2*kModes+1, savePic=False, damping=damp_all_cases_analytical)
+
+            ###########################     U1  aN    ###########################
+            #calculate the leading terms of the perturbation solution u1
+            lambdaCalc, U1 = analytical.fourierCoeffMatrix(param_no_damping, optimized_u0, v0, mu, kModes=kModes, damping=damp_all_cases_analytical)
+        
+        #calculate the perturbation solution u1
+        perturbation_u1 = analytical.collect_u1(lambdaCalc, lamb, U1, mu, x)
+        
+        ###########################     Uc  wE    ###########################
+        #calculate the combined solution u
+        
+        combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, a1, a1, u1=perturbation_u1)       
+                    
+        ###########################     Solve     ###########################
+        print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
+        solver_start = time.time()
+
+        #case 0 
+        sol0 = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
+        amps0 = numAnalysis.amplitude(sol0, len(t), title='numError_amps0', savePic=False)
+  
+        print("Numerical solver 0 --- %s seconds ---" % (time.time() - solver_start))
+        current = time.time()
+     
+        print("Numerical solver 1 --- %s seconds ---" % (time.time() - current))
+
+        print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
 
         return
 
