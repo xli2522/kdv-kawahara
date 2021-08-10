@@ -133,6 +133,7 @@ if __name__ == '__main__':
     pool.terminate()
     print('Full operation completed in ---- ' + str(time.time() - current) + ' ----')
 
+    analytical.numError(5.09, 62.82, 3/160, 0.000001, 800, 4, 2)         # n1/n0 = int; n1 = intiger multiples of n0
 #(2) Group 2
 #beta = 1/4    
 #mus = [0.7845, 0.6324, -0.7928]
