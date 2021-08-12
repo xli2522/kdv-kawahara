@@ -400,7 +400,7 @@ class waveEquation:
         if u1.any() != None:
             u1 = u1
         #u = np.real(u0 + delta*np.exp(1j*lamb*t)*u1)                         #equation (5) - a1/0.000001* scaling
-        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                              #pure imaginary exp ==> cos ==> no exponential contribution
+        u = np.real(u0 + delta*np.exp(lamb*t)*u1)                             #pure imaginary exp ==> cos ==> no exponential contribution
 
         return u
 
@@ -518,20 +518,29 @@ class visual:
         maxAmp = max(sol[0])
         minAmp = min(sol[0])
         for i in tqdm(range(T)):                #loop through every frame
-            if i%2 == 0:                        #sample every 2 frames
-                if T <= 4000:
-                    fig, ax = plt.subplots()    #initialize figure
-                    ax.plot(L/N/np.pi*np.arange(N), sol[i])
-                    ax.set_xlabel('Position x (*pi)')
-                    ax.set_ylabel('Amplitude')
-                    ax.set_ylim(1.3*minAmp, 1.1*maxAmp)
-                    ax.set_title('Wave Profile at Time Step: ' + str(i))
-                    images = imv.memory.savebuff(plt, images)               #save image to the temp container
-                    plt.close()
-                else:
-                    print('Total number of frames - ' + str(T))
-                    batch = int(np.ceil(T/4000))
-                    print('Devided in ' + str(batch) + 'batches.')
+            #if i%2 == 0:                        #sample every 2 frames
+            fig, ax = plt.subplots()    #initialize figure
+            ax.plot(L/N/np.pi*np.arange(N), sol[i], markerfacecolor='blue')
+            ax.set_xlabel('Position x (*pi)')
+            ax.set_ylabel('Amplitude')
+            ax.set_ylim(1.3*minAmp, 1.1*maxAmp)
+            ax.set_title('Wave Profile at Time Step: ' + str(i))
+            images = imv.memory.savebuff(plt, images)               #save image to the temp container
+            plt.close()
+            #upgraded RAM; no longer need 4000 frames limit.
+            '''if T <= 4000:
+                fig, ax = plt.subplots()    #initialize figure
+                ax.plot(L/N/np.pi*np.arange(N), sol[i])
+                ax.set_xlabel('Position x (*pi)')
+                ax.set_ylabel('Amplitude')
+                ax.set_ylim(1.3*minAmp, 1.1*maxAmp)
+                ax.set_title('Wave Profile at Time Step: ' + str(i))
+                images = imv.memory.savebuff(plt, images)               #save image to the temp container
+                plt.close()
+            else:
+                print('Total number of frames - ' + str(T))
+                batch = int(np.ceil(T/4000))
+                print('Devided in ' + str(batch) + 'batches.')'''
 
         imv.memory.construct(images, str(title), fps, inspect=False)        #construct the video 
 
@@ -540,30 +549,48 @@ class visual:
 class numAnalysis:
     '''numerical stability analysis'''
 
-    def amplitude(sol, T, title, inspect=False, savePic=True):
+    def amplitude(sol, T, title, inspect=False, savePic=True, ampType='max'):
         '''Plot the max wave amplitude over time
         Input: 
                 sol             (array)             the solution array
                 T               (int)               the number of time steps
                 title           (string)            title
                 inspect         (noolean)           display
+                ampType         (string)            the plotted amplitude type (max; central; both)
         Output:
-                amp             (float)             max amplitudes
+                ampMax          (float)             max amplitudes
         '''
-        amp = np.zeros(len(sol))
+        ampCentral = np.zeros(len(sol))
+        ampMax = np.zeros(len(sol))
+        centralNum = int(len(sol[0])/2)
 
         for i in range(len(sol)):
-            value = abs(max(sol[i]))    
-            amp[i] = value
+            current_amp = sol[i]
+            ampMax[i] = np.abs(np.max(current_amp))
+            central_amp = current_amp[centralNum]
+            ampCentral[i] = central_amp
 
-        ampAvg = np.average(amp)
+        ampAvg = np.average(ampMax)
+        #Plot 1: Max Amplitudes
         fig, ax = plt.subplots()
-        ax.scatter(range(T), amp, s=40)
-        #ax.set_xlim(0, T)
-        #ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
-        ax.set_xlabel('Time Step     average amp: '+str(ampAvg))
-        ax.set_ylabel('Max Amplitude')
-        ax.set_title('Max Amplitude vs. Time Step')
+        if ampType == 'max':
+            ax.scatter(range(T), ampMax, s=40)
+            #ax.set_xlim(0, T)
+            #ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
+            ax.set_xlabel('Time Step     average amp: '+str(ampAvg))
+            ax.set_ylabel('Max Amplitude')
+            ax.set_title('Max Amplitude vs. Time Step')
+        elif ampType == 'central':
+            ax.scatter(range(T), ampMax, s=40)
+            #ax.set_xlim(0, T)
+            #ax.set_ylim(average(amp) - max(amp)/16, average(amp) + max(amp)/16)
+            ax.set_xlabel('Time Step     average amp: '+str(ampAvg))
+            ax.set_ylabel('Central Amplitude')
+            ax.set_title('Central Amplitude vs. Time Step')
+        elif ampType == 'both':
+            warnings.warn('ampType = both not avaliable atm...')
+        else:
+            warnings.warn('Unexpected ampType... Try: max, central, or both')
 
         if inspect:
             plt.show()
@@ -571,8 +598,16 @@ class numAnalysis:
             plt.savefig(str(title))
         plt.close()
 
-        return amp
-
+        if ampType == 'max':
+            return ampMax
+        elif ampType == 'central':
+            return ampCentral
+        elif ampType == 'both':
+            warnings.warn('ampType = both not avaliable atm...')
+            return ampMax
+        else:
+            return
+       
     def simple_plot(dat, xlabel=None, ylabel=None, id=None, title=None):
         '''Simple plot for average max amplitude
         Input:
@@ -955,7 +990,7 @@ class analytical:
         #print(lambdaCalc[index].imag)
         sumPostive = 0
         sumNegative = 0
-        eta = 0.00001                                                   #to offset the normalization of b
+        eta = 1                                                        #to offset the normalization of b
         #U1 = U1[:int(np.floor(len(lambdaCalc)-1)//2)]
         for i in range(len(lambdaCalc)):
             sumPostive += eta*U1[i]*np.exp(1j*(mu+i)*x)                     #equivalent to equation (9)
@@ -1049,7 +1084,7 @@ class analytical:
         ######################################################################
         if param1 == None or param2 == None:
             param1 = [1, beta, 1, 0.01, lamb]                              #[alpha, beta, sigma, epsilon, lamb]
-            param2 = [0.01, lamb, mu, 1, beta, 1]                          #[delta, lamb, mu, alpha, beta, sigma]
+            param2 = [a1, lamb, mu, 1, beta, 1]                          #[delta, lamb, mu, alpha, beta, sigma]
         
         #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
 

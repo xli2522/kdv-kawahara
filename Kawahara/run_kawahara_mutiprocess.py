@@ -11,9 +11,12 @@ def full_operation(pair):
     mu = pair[0]
     lamb = pair[1]
     beta = 3/160
-    a1=0.000001
+    a1= 0.000001
+    #a1=0.001
+    param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
+    param2 = [0.001, lamb, mu, 1, beta, 1]                           #[delta, lamb, mu, alpha, beta, sigma]
     #a1 = 0.373
-    damp_all_cases = True
+    damp_all_cases = False
     damp_all_cases_analytical = False
     optimize_stable = False
     optimize_unstable = False
@@ -22,21 +25,22 @@ def full_operation(pair):
 
     #####################################################################
     # Set the size of the domain, and create the discretized grid.
-    L = 240*np.pi
+    L = 10*np.pi
     #force a larger periodic domain
+    '''
     if L >= 10*np.pi:
         L = L
     else:
-        L = 10*np.pi
+        L = 10*np.pi'''
     
     N = int(np.floor(30*L/(2*np.pi)))       #number of spatial steps; fit to the length of the periodic domain
     dx = L / (N - 1.0)                      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
     # Set the time sample grid.
-    T = 2
-    t = np.linspace(0, T, 800)
+    T = 0.01
+    t = np.linspace(0, T, 1000)
     dt = len(t)
-
+    
     ######################################################################
     param_damping = [1, beta, 1, a1]
     param_no_damping = [1, beta, 1]
@@ -63,7 +67,7 @@ def full_operation(pair):
         a1 = analytical.optimize_Floquet_a1(param_no_damping, 0.0009, 0.1, mu, 1000, stable=True, savePic=True)
     else:
         a1 = a1
-        lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1, param_no_damping, mu, savePic=True, damping=damp_all_cases_analytical)
+        lamb_no_dampRe, lamb_no_dampIm = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1, param_no_damping, mu, savePic=False, damping=damp_all_cases_analytical)
 
     if a1 == None:
         pass
@@ -71,9 +75,7 @@ def full_operation(pair):
     #lamb_original = analytical.lambdaFloquet(0.97*mu, 1.03*mu, 200, a1,
                                     #param_no_damping, mu, savePic=True, plot=False, damping=False)     
     #continue
-    ######################################################################
-    param1 = [1, beta, 1, 0.01, lamb]                               #[alpha, beta, sigma, epsilon, lamb]
-    param2 = [0.01, lamb, mu, 1, beta, 1]                             #[delta, lamb, mu, alpha, beta, sigma]
+    #####################################################################
     #a1 = 0.001   #param1[3]                                        #DECREASE A1 WHEN BETA IS LARGE
 
     kModes=10                                                       #number of fourier modes to consider
@@ -98,21 +100,27 @@ def full_operation(pair):
     
     ###########################     Uc  wE    ###########################
     #calculate the combined solution u
-    
     combined_u =  waveEquation.kawahara_combined_solution(stationary_u0, x, param2, a1, a1, u1=perturbation_u1)       
 
     #plot the combined initial condition    
-    visual.plotInitial(combined_u, mu, a1, 0)               
-                 
+    visual.plotInitial(combined_u, mu, a1)              
+
+    #calculate the FFT of the initial conditions
+    t = np.arange(N)
+    sp = np.fft.fft(combined_u)
+    freq = np.fft.fftfreq(t.shape[-1])
+    plt.plot(freq, sp.real)#, freq, sp.imag)
+    plt.savefig('fft_'+str(int(L/np.pi))+'pi_'+str(mu)+'mu'+'.png')
+    plt.clf()
+    
     ###########################     Solve     ###########################
     print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
     solver_start = time.time()
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
     print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
-    
 
-    avg = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png')
+    avg = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png', ampType='central')
     #continue
     #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mu)+'mu'+ '.avi', fps=30)
     
@@ -133,7 +141,7 @@ if __name__ == '__main__':
     pool.terminate()
     print('Full operation completed in ---- ' + str(time.time() - current) + ' ----')
 
-    analytical.numError(5.09, 62.82, 3/160, 0.000001, 800, 4, 2)         # n1/n0 = int; n1 = intiger multiples of n0
+    #analytical.numError(5.09, 62.82, 3/160, 0.00001, 800, 3, 8)         # n1/n0 = int; n1 = intiger multiples of n0
 #(2) Group 2
 #beta = 1/4    
 #mus = [0.7845, 0.6324, -0.7928]
