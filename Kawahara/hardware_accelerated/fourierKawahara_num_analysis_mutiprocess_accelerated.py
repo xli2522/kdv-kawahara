@@ -1242,5 +1242,20 @@ class analytical:
 
         return
 
+    def spectrogram(sol, title):
+        '''Produce the spectrogram of waves
+        Input: 
+                        sol             (array-like)                full solution of the time-dependent numerical Kawahara solution
+                        title           (string)                    title of the saved spectrogram file
+        '''
+        
+        plt.specgram(sol, NFFT=128, Fs=4096, noverlap=120, cmap='jet')
+        plt.title('Wave Profile Spectrogram')
+        plt.colorbar()
+        plt.savefig(str(title))
+        plt.close()
+
+        return
+
 if __name__ == "__main__":
     test()

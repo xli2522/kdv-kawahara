@@ -25,7 +25,7 @@ def full_operation(pair):
 
     #####################################################################
     # Set the size of the domain, and create the discretized grid.
-    L = 10*np.pi
+    L = 240*np.pi
     #force a larger periodic domain
     '''
     if L >= 10*np.pi:
@@ -37,8 +37,8 @@ def full_operation(pair):
     dx = L / (N - 1.0)                      #spatial step size
     x = np.linspace(0, (1-1.0/N)*L, N)      #initialize x spatial axis    
     # Set the time sample grid.
-    T = 0.01
-    t = np.linspace(0, T, 1000)
+    T = 5
+    t = np.linspace(0, T, 1600)
     dt = len(t)
     
     ######################################################################
@@ -104,14 +104,6 @@ def full_operation(pair):
 
     #plot the combined initial condition    
     visual.plotInitial(combined_u, mu, a1)              
-
-    #calculate the FFT of the initial conditions
-    t = np.arange(N)
-    sp = np.fft.fft(combined_u)
-    freq = np.fft.fftfreq(t.shape[-1])
-    plt.plot(freq, sp.real)#, freq, sp.imag)
-    plt.savefig('fft_'+str(int(L/np.pi))+'pi_'+str(mu)+'mu'+'.png')
-    plt.clf()
     
     ###########################     Solve     ###########################
     print("Initial condition calculation --- %s seconds ---" % (time.time() - ic_start))
@@ -119,10 +111,14 @@ def full_operation(pair):
     sol = waveEquation.solve_kawahara(waveEquation.kawahara_model, combined_u, t, L, param1, 3000, modelArg=(True, damp_all_cases, 0.1, v0))
     print("Numerical solver --- %s seconds ---" % (time.time() - solver_start))
     print("Main numerical simulation --- %s seconds ---" % (time.time() - main_start))
+    #analytical.spectrogram(sol.flatten(), 'Table_test_'+str(a1)+'spectrogram_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png')
 
-    avg = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png', ampType='central')
+    ampAnaly = numAnalysis.amplitude(sol, len(t), title='Table_test_'+str(a1)+'maxamp_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png', ampType='central')
+
+    analytical.spectrogram(ampAnaly, 'Table_test_'+str(a1)+'spectrogram_CentralAmp_'+str(mu)+'_'+str(int(L/np.pi))+'pi'+'.png')
+
     #continue
-    #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mu)+'mu'+ '.avi', fps=30)
+    #visual.plot_video(sol, len(t), N, L, 'Table_test_'+str(int(L/np.pi))+'pi_'+str(mu)+'mu'+ '.avi', fps=15)
     
     #############                             #############
     #############     Numerical Instability   #############
